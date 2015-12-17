@@ -31,10 +31,13 @@ func (q byIdx) Len() int           { return len(q) }
 func (q byIdx) Swap(i, j int)      { q[i], q[j] = q[j], q[i] }
 func (q byIdx) Less(i, j int) bool { return q[i].idx < q[j].idx }
 
+type Result struct {
+	id    string
+	score float32
+}
+
 func parseQuery(header, query string) []QTerm {
 	fields := strings.Split(header, ",")
-	fmt.Printf("fields=%v\n", fields)
-
 	invFields := make(map[string]int)
 	for i, f := range fields {
 		invFields[f] = i
@@ -51,6 +54,9 @@ func parseQuery(header, query string) []QTerm {
 		idx, ok := invFields[pair[0]]
 		if !ok {
 			log.Fatalf("ERROR: malformed query: unknown field '%s'\n", pair[0])
+		}
+		if idx == 0 {
+			log.Fatalf("ERROR: malformed query: cannot use id (first) field\n")
 		}
 		val64, err := strconv.ParseFloat(pair[1], 32)
 		if err != nil {
@@ -69,9 +75,12 @@ func main() {
 	if len(*csvfile) == 0 || len(*query) == 0 {
 		fmt.Printf("ERROR: --csvfile and --query must be specified\n")
 		flag.PrintDefaults()
-		os.Exit(2)
+		os.Exit(1)
 	}
-	fmt.Printf("csvfile=%s query=%s limit=%d\n", *csvfile, *query, *limit)
+	if *limit <= 0 {
+		log.Fatalf("ERROR: --limit must be greater than zero")
+	}
+	fmt.Printf(" > csvfile=%s query=%s limit=%d\n", *csvfile, *query, *limit)
 
 	csvReader, err := os.Open(*csvfile)
 	if err != nil {
@@ -87,11 +96,12 @@ func main() {
 	header := csvScanner.Text()
 
 	terms := parseQuery(header, *query)
-	fmt.Printf("terms=%v\n", terms)
+	fmt.Printf(" > column=weight : %v\n", terms)
 
-	topScore := float32(math.Inf(-1))
-	topIdx := int64(-1)
-	lineIdx := int64(0)
+	topResults := make([]Result, *limit)
+	for i, _ := range topResults {
+		topResults[i].score = float32(math.Inf(-1))
+	}
 
 	for csvScanner.Scan() {
 		var score float32
@@ -102,14 +112,28 @@ func main() {
 			fv, _ := strconv.ParseFloat(vals[t.idx], 32)
 			score += float32(fv) * t.weight
 		}
-		if score > topScore {
-			topIdx = lineIdx
-			topScore = score
+
+		ridx := *limit - 1
+		for ridx >= 0 {
+			if score <= topResults[ridx].score {
+				break
+			}
+			if ridx < *limit-1 {
+				topResults[ridx+1] = topResults[ridx]
+			}
+			ridx -= 1
 		}
-		lineIdx += 1
+		loc := ridx + 1
+		if loc < *limit {
+			topResults[loc] = Result{vals[0], score}
+		}
 	}
 	if serr := csvScanner.Err(); serr != nil {
 		log.Fatalf("Error: failed reading csv: %s\n", serr)
 	}
-	fmt.Printf("Top score=%f idx=%d\n", topScore, topIdx)
+
+	fmt.Printf("Top results:\n")
+	for _, r := range topResults {
+		fmt.Printf(" %-10s %f\n", r.id, r.score)
+	}
 }
