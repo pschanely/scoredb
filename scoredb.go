@@ -6,10 +6,12 @@ import (
 )
 
 type StubDb struct {
+	idx int64
 }
 
 func (sdb *StubDb) Index(record map[string]float32) int64 {
-	return 7
+	sdb.idx += 1
+	return sdb.idx
 }
 
 func (sdb *StubDb) Query(numResults int, weights map[string]float32) []int64 {
