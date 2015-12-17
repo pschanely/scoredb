@@ -1,4 +1,4 @@
-package scoredb
+package main
 
 import (
 )
