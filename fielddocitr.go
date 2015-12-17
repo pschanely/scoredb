@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"container/heap"
+	"fmt"
 )
 
 type FieldDocItr struct {
-	score float32
-	docId int64
+	score    float32
+	docId    int64
 	min, max float32
 
 	lists FieldDocItrs
@@ -15,15 +15,16 @@ type FieldDocItr struct {
 
 func NewFieldDocItr(lists FieldDocItrs) *FieldDocItr {
 	return &FieldDocItr{
-		score:0.0, 
-		docId:-1, 
-		min:0.0, 
-		max:1.0,
+		score: 0.0,
+		docId: -1,
+		min:   0.0,
+		max:   1.0,
 
 		lists: lists,
 	}
 }
-type FieldDocItrs []DocItr // FieldDocItrs implements heap.Interface
+
+type FieldDocItrs []DocItr       // FieldDocItrs implements heap.Interface
 func (so FieldDocItrs) Len() int { return len(so) }
 func (so FieldDocItrs) Less(i, j int) bool {
 	return (so[i]).DocId() < (so[j]).DocId()
@@ -43,10 +44,10 @@ func (so FieldDocItrs) Swap(i, j int) {
 }
 
 func (op *FieldDocItr) DocId() int64 {
-	return op.docId;
+	return op.docId
 }
 func (op *FieldDocItr) Score() float32 {
-	return op.score;
+	return op.score
 }
 func (op *FieldDocItr) SetBounds(min, max float32) bool {
 	op.min = min
@@ -60,7 +61,9 @@ func (op *FieldDocItr) SetBounds(min, max float32) bool {
 	return anyMore
 }
 func (op *FieldDocItr) Next() bool {
-	if len(op.lists) == 0 { return false }
+	if len(op.lists) == 0 {
+		return false
+	}
 	fmt.Printf("%+v\n", op)
 	fmt.Printf("%+v\n", op.lists[0])
 	minId := op.lists[0].DocId() + 1
@@ -69,14 +72,15 @@ func (op *FieldDocItr) Next() bool {
 			heap.Fix(&op.lists, 0)
 		} else {
 			heap.Remove(&op.lists, 0)
-			if len(op.lists) == 0 { return false }
+			if len(op.lists) == 0 {
+				return false
+			}
 		}
 	}
 	op.docId = op.lists[0].DocId()
 	op.score = op.lists[0].Score()
 	return true
 }
-
 
 // Shifts operations forward until they all produce the same docId
 func SyncOperations(operations []DocItr, toDocId int64) (docId int64, score bool) {
@@ -86,13 +90,15 @@ func SyncOperations(operations []DocItr, toDocId int64) (docId int64, score bool
 		for _, subOp := range operations {
 			docId := subOp.DocId()
 			for docId < toDocId {
-				if (! subOp.Next()) { return toDocId, false }
+				if !subOp.Next() {
+					return toDocId, false
+				}
 				docId = subOp.DocId()
 			}
 			if docId > toDocId {
 				toDocId = docId
 				syncAgain = true
-				break;
+				break
 			}
 		}
 	}
