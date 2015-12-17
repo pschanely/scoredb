@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -85,6 +86,30 @@ func main() {
 	}
 	header := csvScanner.Text()
 
-	sortedTerms := parseQuery(header, *query)
-	fmt.Printf("terms=%v\n", sortedTerms)
+	terms := parseQuery(header, *query)
+	fmt.Printf("terms=%v\n", terms)
+
+	topScore := float32(math.Inf(-1))
+	topIdx := int64(-1)
+	lineIdx := int64(0)
+
+	for csvScanner.Scan() {
+		var score float32
+		row := csvScanner.Text()
+		vals := strings.Split(row, ",")
+		for _, t := range terms {
+			// no error checking :)
+			fv, _ := strconv.ParseFloat(vals[t.idx], 32)
+			score += float32(fv) * t.weight
+		}
+		if score > topScore {
+			topIdx = lineIdx
+			topScore = score
+		}
+		lineIdx += 1
+	}
+	if serr := csvScanner.Err(); serr != nil {
+		log.Fatalf("Error: failed reading csv: %s\n", serr)
+	}
+	fmt.Printf("Top score=%f idx=%d\n", topScore, topIdx)
 }
