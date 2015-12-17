@@ -9,8 +9,7 @@ type FieldDocItr struct {
 	score    float32
 	docId    int64
 	min, max float32
-
-	lists FieldDocItrs
+	lists    FieldDocItrs
 }
 
 func NewFieldDocItr(lists FieldDocItrs) *FieldDocItr {
@@ -19,7 +18,6 @@ func NewFieldDocItr(lists FieldDocItrs) *FieldDocItr {
 		docId: -1,
 		min:   0.0,
 		max:   1.0,
-
 		lists: lists,
 	}
 }
@@ -43,6 +41,7 @@ func (so FieldDocItrs) Swap(i, j int) {
 	so[i], so[j] = so[j], so[i]
 }
 
+func (op *FieldDocItr) Name() string { return "FieldDocItr" }
 func (op *FieldDocItr) DocId() int64 {
 	return op.docId
 }
@@ -64,8 +63,7 @@ func (op *FieldDocItr) Next() bool {
 	if len(op.lists) == 0 {
 		return false
 	}
-	fmt.Printf("%+v\n", op)
-	fmt.Printf("%+v\n", op.lists[0])
+	fmt.Printf("FieldDocItr.Next begin:  %+v\n", op.lists[0])
 	minId := op.lists[0].DocId() + 1
 	for op.lists[0].DocId() < minId {
 		if op.lists[0].Next() {
