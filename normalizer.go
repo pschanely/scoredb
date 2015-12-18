@@ -15,6 +15,13 @@ type Normalizer struct {
 
 }
 
+func (normalizer *Normalizer) Init() {
+	normalizer.sums = map[string]float32{}
+	normalizer.counts = map[string]int{}
+	normalizer.variants = map[string]float32{}
+	normalizer.mins = map[string]float32{}
+	normalizer.maxes = map[string]float32{}
+}
 
 func (normalizer *Normalizer) Consider(record map[string]float32) {
 	for fieldName, fieldValue := range record {
@@ -53,6 +60,10 @@ func (normalizer * Normalizer) SetStdev(record map[string]float32) {
 
 func (normalizer * Normalizer) NormalizeValue(fieldName string, originalValue float32) float32 {
 	return (originalValue - normalizer.GetMean(fieldName))/normalizer.GetStdev(fieldName)
+}
+
+func (normalizer * Normalizer) ScaleValue(fieldName string, normalizedValue float32) float32 {
+	return normalizedValue * normalizer.GetStdev(fieldName) + normalizer.GetMean(fieldName)
 }
 
 func (normalizer * Normalizer) GetMean(fieldName string) float32 {
