@@ -30,7 +30,7 @@ func TestNormalizer(t *testing.T) {
 		var normalizer Normalizer
 		normalizer.Init()
 		for _, sample := range c.input {
-			normalizer.SetSum(sample)
+			normalizer.SetMean(sample)
 		}
 		for _, sample := range c.input {
 			normalizer.SetStdev(sample)

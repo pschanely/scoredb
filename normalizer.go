@@ -45,7 +45,7 @@ func (normalizer *Normalizer) BasicScaleValue(fieldName string, normalizedValue 
 
 //....And the fancy shmancy version, normalize it to a standard deviation.
 
-func (normalizer * Normalizer) SetSum(record map[string]float32) {
+func (normalizer * Normalizer) SetMean(record map[string]float32) {
 	for fieldName, fieldValue := range record {
 		normalizer.counts[fieldName] += 1
 		normalizer.sums[fieldName] += fieldValue
