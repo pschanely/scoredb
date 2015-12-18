@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 )
@@ -19,16 +20,13 @@ func (sdb *StubDb) Query(numResults int, weights map[string]float32) []int64 {
 }
 
 func main() {
-	fmt.Println("starting scoredb")
-	l1 := NewMemoryDocItr(
-		[]float32{1.0, 1.0, 0.5, 1.0, 0.5},
-		[]int64{1, 5, 7, 8, 9},
-	)
-	fmt.Printf("Next = %s\n", l1.Next())
+	var dataDir = flag.String("datadir", "scoredb-data", "data directory")
+	flag.Parse()
 
 	// TODO pick implementation based on command line flags?
-	var scoreDb Db = &StubDb{}
+	var scoreDb Db = &FsScoreDb{dataDir: *dataDir, nextId: 1}
 
+	fmt.Println("starting scoredb in %s", *dataDir)
 	addr := ":8080"
 	fmt.Printf("Serving on %s\n", addr)
 	log.Fatal(ServeHttp(addr, scoreDb))
