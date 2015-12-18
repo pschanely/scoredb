@@ -34,9 +34,13 @@ func RunBenchmark(db Db, csvFilename string) error {
 		colMap[colIdx] = colName
 	}
 
-	recordIndexIds := make([]int64, 0)
+	// recordIndexIds := make([]int64, 0)
 
 	log.Println("Indexing ...")
+
+	recordGroupSize := 100000
+	recordGroup := make([]map[string]float32, recordGroupSize)
+	curGroupSize := 0
 
 	for {
 		row, err := csvReader.Read()
@@ -60,9 +64,22 @@ func RunBenchmark(db Db, csvFilename string) error {
 			record[recordKey] = val32
 		}
 		if len(record) > 0 {
-			id := db.Index(record)
-			recordIndexIds = append(recordIndexIds, id)
+			// indexing one at a time
+			// id := db.Index(record)
+			// recordIndexIds = append(recordIndexIds, id)
+
+			recordGroup[curGroupSize] = record
+			curGroupSize++
+			if curGroupSize == recordGroupSize {
+				db.BulkIndex(recordGroup)
+				curGroupSize = 0
+			}
 		}
+	}
+	if curGroupSize > 0 {
+		finalRecords := make([]map[string]float32, curGroupSize)
+		copy(finalRecords, recordGroup)
+		db.BulkIndex(finalRecords)
 	}
 
 	log.Println("Indexing ... done")
