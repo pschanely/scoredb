@@ -21,7 +21,7 @@ func Exists(path string) bool {
 	return !os.IsNotExist(err)
 }
 
-func OpenPostingList(dataDir string, key string, value float32) (io.Writer, error) {
+func FindPostingListFile(dataDir string, key string, value float32) string {
 	scoreBits := math.Float32bits(value)
 	if !Exists(dataDir) {
 		os.Mkdir(dataDir, 0755)
@@ -30,7 +30,10 @@ func OpenPostingList(dataDir string, key string, value float32) (io.Writer, erro
 	if !Exists(fieldDir) {
 		os.Mkdir(fieldDir, 0755)
 	}
-	filename := fieldDir + "/" + fmt.Sprintf("%#x", scoreBits>>16)[2:]
+	return fieldDir + "/" + fmt.Sprintf("%04x", scoreBits>>16)
+}
+
+func OpenPostingList(filename string, value float32) (io.Writer, error) {
 	var fd *os.File
 	var err error
 	if Exists(filename) {
@@ -72,18 +75,46 @@ func OpenPostingListRange(dataDir string, key string) ([]DocItr, error) {
 	return results, nil
 }
 
+func (db *FsScoreDb) BulkIndex(records []map[string]float32) []int64 {
+	dataDir := db.dataDir
+	fds := make(map[string]io.Writer)
+	ids := make([]int64, len(records))
+	for idx, record := range records {
+		docid := db.nextId
+		db.nextId += 1
+		for key, value := range record {
+			filename := FindPostingListFile(dataDir, key, value)
+			_, ok := fds[filename]
+			if ! ok {
+				fd, err := OpenPostingList(filename, value)
+				if err != nil {
+					panic(fmt.Sprintf("%v", err))
+				}
+				fds[filename] = fd
+			}
+			WritePostingListEntry(fds[filename], docid, value)
+			ids[idx] = docid
+		}
+	}
+	for _, fd := range(fds) {
+		fd.(*os.File).Close()
+	}
+	return ids
+}
+
 func (db *FsScoreDb) Index(record map[string]float32) int64 {
 	dataDir := db.dataDir
 
 	docid := db.nextId
 	db.nextId += 1
 	for key, value := range record {
-		fd, err := OpenPostingList(dataDir, key, value)
+		filename := FindPostingListFile(dataDir, key, value)
+		fd, err := OpenPostingList(filename, value)
 		if err != nil {
 			panic(fmt.Sprintf("%v", err))
 		}
 		WritePostingListEntry(fd, docid, value)
-		fd.(*os.File).Sync()
+		
 		fd.(*os.File).Close()
 	}
 	return docid
@@ -185,6 +216,6 @@ func WritePostingListEntry(fd io.Writer, docIncr int64, score float32) {
 	scoreBits := math.Float32bits(score)
 	buf[sz+1] = byte((scoreBits >> 8) & 0xff)
 	buf[sz+2] = byte(scoreBits & 0xff)
-	//fmt.Printf("write score %v -> %#x   buf: %v\n", score, scoreBits, buf[:sz+2])
+	//fmt.Printf("write score %v -> %#x   buf: %v\n", score, scoreBits, buf)
 	fd.Write(buf[:sz+2])
 }

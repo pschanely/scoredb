@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 	"sort"
 )
@@ -85,13 +84,13 @@ func (op *LinearDocItr) Next() bool {
 		}
 		if ! keepGoing {
 			if score < min || score > max {
-				fmt.Printf("LinearDocItr skipping poor result %v (score: %v) [%v:%v]\n", docId, score, min, max)
+				//fmt.Printf("LinearDocItr skipping poor result %v (score: %v) [%v:%v]\n", docId, score, min, max)
 				docId += 1
 				keepGoing = true
 			}
 		}
 	}
-	fmt.Printf("LinearDocItr Next() %v (score: %v)\n", docId, score)
+	//fmt.Printf("LinearDocItr Next() %v (score: %v)\n", docId, score)
 	op.docId = docId
 	op.score = score
 	return true

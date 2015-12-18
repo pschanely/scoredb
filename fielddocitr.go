@@ -80,6 +80,7 @@ func (op *FieldDocItr) Next() bool {
 	if len(op.lists) == 0 {
 		return false
 	}
+	//fmt.Printf("FieldDocItr %v sz %v done\n", op.field, len(op.lists))
 	minId := op.lists[0].DocId() + 1
 	for op.lists[0].DocId() < minId {
 		if op.lists[0].Next() {

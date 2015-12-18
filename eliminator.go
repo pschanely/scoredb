@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 )
 
 //in boundvals and elimvals, index 0 is the min and index 1 is the max.
@@ -38,7 +37,7 @@ func Elim(eqmap map[string]float32, bval float32, boundvals map[string][2]float3
 }
 
 func (op *LinearDocItr) SetBounds(min, max float32) bool {
-	fmt.Printf("LinearDocItr SetBounds %v %v\n", min, max)
+	//fmt.Printf("LinearDocItr SetBounds %v %v\n", min, max)
 	op.min = min
 	op.max = max
 
@@ -68,13 +67,13 @@ func (op *LinearDocItr) SetBounds(min, max float32) bool {
 				elimval = curMin
 			}
 			linComponent.docItr.SetBounds(elimval, curMax)
-			fmt.Printf("SetBounds min %v %v\n", elimval, curMax)
+			//fmt.Printf("SetBounds min %v %v\n", elimval, curMax)
 		} else {
 			if elimval > curMax {
 				elimval = curMax
 			}
 			linComponent.docItr.SetBounds(curMin, elimval)
-			fmt.Printf("SetBounds max %v %v\n", curMin, elimval)
+			//fmt.Printf("SetBounds max %v %v\n", curMin, elimval)
 		}
 	}
 	return true
