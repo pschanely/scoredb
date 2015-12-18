@@ -7,14 +7,16 @@ import (
 )
 
 type FieldDocItr struct {
+	field    string
 	score    float32
 	docId    int64
 	min, max float32
 	lists    FieldDocItrs
 }
 
-func NewFieldDocItr(lists FieldDocItrs) *FieldDocItr {
+func NewFieldDocItr(field string, lists FieldDocItrs) *FieldDocItr {
 	itr := &FieldDocItr{
+		field: field,
 		score: 0.0,
 		docId: -1,
 		lists: lists,
@@ -29,7 +31,7 @@ func NewFieldDocItr(lists FieldDocItrs) *FieldDocItr {
 			max = curMax
 		}
 	}
-	fmt.Printf("FieldDocItr range: %v %v\n", min, max)
+	fmt.Printf("FieldDocItr %v range: %v %v\n", field, min, max)
 	itr.min, itr.max = min, max
 	return itr
 }
@@ -91,7 +93,7 @@ func (op *FieldDocItr) Next() bool {
 	}
 	op.docId = op.lists[0].DocId()
 	op.score = op.lists[0].Score()
-	fmt.Printf("FieldDocItr.Next() produces:  %v (score: %v)\n", op.docId, op.score)
+	//fmt.Printf("FieldDocItr.Next() %v produces:  %v (score: %v)\n", op.field, op.docId, op.score)
 	return true
 }
 
