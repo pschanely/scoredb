@@ -17,7 +17,7 @@ type FsScoreDb struct {
 }
 
 func Exists(path string) bool {
-	_, err := os.Stat("/path/to/whatever")
+	_, err := os.Stat(path)
 	return !os.IsNotExist(err)
 }
 
@@ -34,8 +34,10 @@ func OpenPostingList(dataDir string, key string, value float32) (io.Writer, erro
 	var fd *os.File
 	var err error
 	if Exists(filename) {
-		fd, err = os.OpenFile(filename, os.O_APPEND, 0666)
+		//fmt.Printf("Appending to %v\n", filename)
+		fd, err = os.OpenFile(filename, os.O_RDWR | os.O_APPEND, 0666)
 	} else {
+		//fmt.Printf("Creating %v\n", filename)
 		fd, err = os.Create(filename)
 	}
 	if err != nil {
@@ -81,6 +83,7 @@ func (db *FsScoreDb) Index(record map[string]float32) int64 {
 			panic(fmt.Sprintf("%v", err))
 		}
 		WritePostingListEntry(fd, docid, value)
+		fd.(*os.File).Sync()
 		fd.(*os.File).Close()
 	}
 	return docid
@@ -94,7 +97,7 @@ func (db *FsScoreDb) Query(numResults int, weights map[string]float32) []int64 {
 		if err != nil {
 			panic(fmt.Sprintf("%v", err))
 		}
-		fieldItrs[idx].docItr = NewFieldDocItr(itrs)
+		fieldItrs[idx].docItr = NewFieldDocItr(key, itrs)
 		fieldItrs[idx].coef = weight
 		idx += 1
 	}
@@ -167,7 +170,7 @@ func (op *PostingListDocItr) Next() bool {
 		}
 		valueBits = op.rangePrefix | uint32(b1)<<8 | uint32(b2)
 		score := math.Float32frombits(valueBits)
-		//fmt.Printf("READ docincr: %v score: %v [%v:%v]\n", docIncr, score, op.min, op.max)
+		//fmt.Printf("PostingListDocItr Next(): %v (score: %v) [%v:%v]\n", docIncr, score, op.min, op.max)
 		op.docId = docIncr
 		if op.min <= score && score <= op.max {
 			op.score = score
@@ -182,6 +185,6 @@ func WritePostingListEntry(fd io.Writer, docIncr int64, score float32) {
 	scoreBits := math.Float32bits(score)
 	buf[sz+1] = byte((scoreBits >> 8) & 0xff)
 	buf[sz+2] = byte(scoreBits & 0xff)
-	fmt.Printf("write score %v -> %#x   buf: %v\n", score, scoreBits, buf[:sz+2])
+	//fmt.Printf("write score %v -> %#x   buf: %v\n", score, scoreBits, buf[:sz+2])
 	fd.Write(buf[:sz+2])
 }
