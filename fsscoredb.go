@@ -23,8 +23,14 @@ func Exists(path string) bool {
 
 func OpenPostingList(dataDir string, key string, value float32) (io.Writer, error) {
 	scoreBits := math.Float32bits(value)
-	filename := dataDir + "/" + key + "/" + fmt.Sprintf("%#x", scoreBits>>16)[2:]
-	//var mode int
+	if !Exists(dataDir) {
+		os.Mkdir(dataDir, 0755)
+	}
+	fieldDir := dataDir + "/" + key
+	if !Exists(fieldDir) {
+		os.Mkdir(fieldDir, 0755)
+	}
+	filename := fieldDir + "/" + fmt.Sprintf("%#x", scoreBits>>16)[2:]
 	var fd *os.File
 	var err error
 	if Exists(filename) {
@@ -58,7 +64,7 @@ func OpenPostingListRange(dataDir string, key string) ([]DocItr, error) {
 			return nil, err
 		}
 		var rangePrefix uint32
-		rangePrefix = uint32(bytes[0])<<32 | uint32(bytes[1])<<24
+		rangePrefix = uint32(bytes[0])<<24 | uint32(bytes[1])<<16
 		results[idx] = NewPostingListDocItr(reader, rangePrefix)
 	}
 	return results, nil
@@ -81,19 +87,18 @@ func (db *FsScoreDb) Index(record map[string]float32) int64 {
 }
 
 func (db *FsScoreDb) Query(numResults int, weights map[string]float32) []int64 {
-	fieldItrs := make([]DocItr, len(weights))
+	fieldItrs := make([]LinearComponent, len(weights))
 	idx := 0
-	for key, _ := range weights {
+	for key, weight := range weights {
 		itrs, err := OpenPostingListRange(db.dataDir, key)
 		if err != nil {
 			panic(fmt.Sprintf("%v", err))
 		}
-		// TODO weights!
-		fieldItrs[idx] = NewFieldDocItr(itrs)
+		fieldItrs[idx].docItr = NewFieldDocItr(itrs)
+		fieldItrs[idx].coef = weight
 		idx += 1
 	}
-	// TODO LinearCombinationDocItr
-	return BridgeQuery(numResults, weights, fieldItrs[0])
+	return BridgeQuery(numResults, weights, NewLinearDocItr(fieldItrs))
 }
 
 type PostingListDocItr struct {
@@ -106,14 +111,23 @@ type PostingListDocItr struct {
 }
 
 func NewPostingListDocItr(reader io.ByteReader, rangePrefix uint32) *PostingListDocItr {
-	return &PostingListDocItr{
+	itr := &PostingListDocItr{
 		score:       0.0,
 		docId:       -1,
-		min:         0.0,
-		max:         1.0,
+		min:         float32(math.Inf(-1)),
+		max:         float32(math.Inf(1)),
 		rangePrefix: rangePrefix,
 		reader:      reader,
 	}
+	bound1 := math.Float32frombits(rangePrefix | 0x0000)
+	bound2 := math.Float32frombits(rangePrefix | 0xffff)
+	if bound1 < bound2 {
+		itr.min, itr.max = bound1, bound2
+	} else {
+		itr.min, itr.max = bound2, bound1
+	}
+	//fmt.Printf("bucket min/max : %v %v\n", itr.min, itr.max)
+	return itr
 }
 
 func (op *PostingListDocItr) Name() string { return "PostingListDocItr" }
@@ -123,7 +137,11 @@ func (op *PostingListDocItr) DocId() int64 {
 func (op *PostingListDocItr) Score() float32 {
 	return op.score
 }
+func (op *PostingListDocItr) GetBounds() (min, max float32) {
+	return op.min, op.max
+}
 func (op *PostingListDocItr) SetBounds(min, max float32) bool {
+	// TODO check vs bucket bounds
 	op.min = min
 	op.max = max
 	return true
@@ -149,7 +167,7 @@ func (op *PostingListDocItr) Next() bool {
 		}
 		valueBits = op.rangePrefix | uint32(b1)<<8 | uint32(b2)
 		score := math.Float32frombits(valueBits)
-		fmt.Printf("READ docincr: %v score: %v [%v:%v]\n", docIncr, score, op.min, op.max)
+		//fmt.Printf("READ docincr: %v score: %v [%v:%v]\n", docIncr, score, op.min, op.max)
 		op.docId = docIncr
 		if op.min <= score && score <= op.max {
 			op.score = score

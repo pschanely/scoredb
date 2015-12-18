@@ -19,10 +19,17 @@ func Isnt(r1, r2 []int64) bool {
 }
 
 func TestFsScore(t *testing.T) {
-	/*
-		db := FsScoreDb{dataDir:"datatest", nextId:1}
-		db.Index(map[string]float32{"age":32, "height":2.0})
-		db.Index(map[string]float32{"age":16, "height":1.5})
-		if Isnt([]int64{1, 2}, db.Query(2, map[string]float32{"age":1.0, "height":1.0})) {t.Error()}
-	*/
+	db := FsScoreDb{dataDir: "datatest", nextId: 1}
+	db.Index(map[string]float32{"age": 32, "height": 2.0})
+	db.Index(map[string]float32{"age": 25, "height": 1.8})
+	db.Index(map[string]float32{"age": 16, "height": 2.5})
+	if Isnt([]int64{1, 2}, db.Query(2, map[string]float32{"age": 1.0, "height": 1.0})) {
+		t.Error()
+	}
+	if Isnt([]int64{1}, db.Query(1, map[string]float32{"age": 1.0, "height": 1.0})) {
+		t.Error()
+	}
+	if Isnt([]int64{3, 1}, db.Query(2, map[string]float32{"age": 0.1, "height": 10.0})) {
+		t.Error()
+	}
 }
