@@ -1,6 +1,8 @@
 package main
 
-import ()
+import (
+	"math"
+)
 
 type MemoryDocItr struct {
 	score    float32
@@ -14,11 +16,10 @@ type MemoryDocItr struct {
 
 func NewMemoryDocItr(scores []float32, docs []int64) *MemoryDocItr {
 	return &MemoryDocItr{
-		score: 0.0,
-		docId: -1,
-		min:   0.0,
-		max:   1.0,
-
+		score:  0.0,
+		docId:  -1,
+		min:    float32(math.Inf(-1)),
+		max:    float32(math.Inf(1)),
 		scores: scores,
 		docs:   docs,
 		index:  -1,
@@ -30,6 +31,7 @@ func (op *MemoryDocItr) DocId() int64 {
 func (op *MemoryDocItr) Score() float32 {
 	return op.score
 }
+func (op *MemoryDocItr) GetBounds() (min, max float32) { return op.min, op.max }
 func (op *MemoryDocItr) SetBounds(min, max float32) bool {
 	if min > op.max || max < op.min {
 		return false

@@ -3,25 +3,35 @@ package main
 import (
 	"container/heap"
 	"fmt"
+	"math"
 )
 
 type FieldDocItr struct {
 	score    float32
 	docId    int64
 	min, max float32
-
-	lists FieldDocItrs
+	lists    FieldDocItrs
 }
 
 func NewFieldDocItr(lists FieldDocItrs) *FieldDocItr {
-	return &FieldDocItr{
+	itr := &FieldDocItr{
 		score: 0.0,
 		docId: -1,
-		min:   0.0,
-		max:   1.0,
-
 		lists: lists,
 	}
+	min, max := float32(math.Inf(1)), float32(math.Inf(-1))
+	for _, docItr := range lists {
+		curMin, curMax := docItr.GetBounds()
+		if curMin < min {
+			min = curMin
+		}
+		if curMax > max {
+			max = curMax
+		}
+	}
+	fmt.Printf("FieldDocItr range: %v %v\n", min, max)
+	itr.min, itr.max = min, max
+	return itr
 }
 
 type FieldDocItrs []DocItr       // FieldDocItrs implements heap.Interface
@@ -43,11 +53,15 @@ func (so FieldDocItrs) Swap(i, j int) {
 	so[i], so[j] = so[j], so[i]
 }
 
+func (op *FieldDocItr) Name() string { return "FieldDocItr" }
 func (op *FieldDocItr) DocId() int64 {
 	return op.docId
 }
 func (op *FieldDocItr) Score() float32 {
 	return op.score
+}
+func (op *FieldDocItr) GetBounds() (min, max float32) {
+	return op.min, op.max
 }
 func (op *FieldDocItr) SetBounds(min, max float32) bool {
 	op.min = min
@@ -64,8 +78,6 @@ func (op *FieldDocItr) Next() bool {
 	if len(op.lists) == 0 {
 		return false
 	}
-	fmt.Printf("%+v\n", op)
-	fmt.Printf("%+v\n", op.lists[0])
 	minId := op.lists[0].DocId() + 1
 	for op.lists[0].DocId() < minId {
 		if op.lists[0].Next() {
@@ -79,6 +91,7 @@ func (op *FieldDocItr) Next() bool {
 	}
 	op.docId = op.lists[0].DocId()
 	op.score = op.lists[0].Score()
+	fmt.Printf("FieldDocItr.Next() produces:  %v (score: %v)\n", op.docId, op.score)
 	return true
 }
 

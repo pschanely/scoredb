@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -13,6 +16,15 @@ type ScoreDbServer struct {
 	db Db
 }
 
+func serializeIds(ids []int64) (string, error) {
+	b, err := json.Marshal(ids)
+	if err != nil {
+		return "", err
+	}
+	s := string(b)
+	return s, nil
+}
+
 func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// simple dispatch
 	p := req.URL.Path
@@ -20,6 +32,8 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		sds.ServeIndex(w, req)
 	} else if p == "/query" {
 		sds.ServeQuery(w, req)
+	} else if p == "/csvindex" {
+		sds.ServeCsvIndex(w, req)
 	} else {
 		http.NotFound(w, req)
 	}
@@ -84,13 +98,75 @@ func (sds *ScoreDbServer) ServeQuery(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ids := sds.db.Query(n, record)
-	b, err := json.Marshal(ids)
+	idsSerialized, err := serializeIds(ids)
 	if err != nil {
 		// this shouldn't happen
 		panic(err)
 	}
-	s := string(b)
-	fmt.Fprintf(w, "%s\n", s)
+	fmt.Fprintf(w, "%s\n", idsSerialized)
+}
+
+func (sds *ScoreDbServer) ServeCsvIndex(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "POST" {
+		http.NotFound(w, req)
+		return
+	}
+
+	bufReader := bufio.NewReader(req.Body)
+	csvReader := csv.NewReader(bufReader)
+
+	header, err := csvReader.Read()
+	if err == io.EOF {
+		http.Error(w, "no header line", 400)
+		return
+	} else if err != nil {
+		http.Error(w, "Error reading request body", 400)
+		return
+	}
+
+	// TODO ensure we have at least one value?
+
+	colMap := make(map[int]string, len(header))
+	for colIdx, colName := range header {
+		colMap[colIdx] = colName
+	}
+
+	ids := make([]int64, 0)
+
+	for {
+		row, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			http.Error(w, "Error reading request body", 400)
+			return
+		}
+		record := make(map[string]float32, len(row))
+		for fieldIdx, fieldValue := range row {
+			recordKey, ok := colMap[fieldIdx]
+			if !ok {
+				// if we don't have header mappings, skip
+				break
+			}
+			val64, err := strconv.ParseFloat(fieldValue, 32)
+			if err != nil {
+				continue
+			}
+			val32 := float32(val64)
+			record[recordKey] = val32
+		}
+		if len(record) > 0 {
+			id := sds.db.Index(record)
+			ids = append(ids, id)
+		}
+	}
+
+	idsSerialized, err := serializeIds(ids)
+	if err != nil {
+		// this shouldn't happen
+		panic(err)
+	}
+	fmt.Fprintf(w, "%s\n", idsSerialized)
 }
 
 func ServeHttp(addr string, db Db) error {
