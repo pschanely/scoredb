@@ -6,8 +6,8 @@ import (
 )
 
 type LinearComponent struct {
-	coef   float32
-	docItr DocItr
+	coef       float32
+	docItr     DocItr
 	scoreRange float32
 }
 
@@ -16,7 +16,6 @@ type LinearComponents []LinearComponent
 func (a LinearComponents) Len() int           { return len(a) }
 func (a LinearComponents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a LinearComponents) Less(i, j int) bool { return a[i].scoreRange > a[j].scoreRange }
-
 
 type LinearDocItr struct {
 	score    float32
@@ -28,7 +27,7 @@ type LinearDocItr struct {
 
 func NewLinearDocItr(parts LinearComponents) *LinearDocItr {
 	min, max := float32(0.0), float32(0.0)
-	for idx, part := range(parts) {
+	for idx, part := range parts {
 		curMin, curMax := part.docItr.GetBounds()
 		curMin *= part.coef
 		curMax *= part.coef
@@ -79,7 +78,7 @@ func (op *LinearDocItr) Next(minId int64) bool {
 			}
 			score += part.coef * part.docItr.Score()
 		}
-		if ! keepGoing {
+		if !keepGoing {
 			if score < min || score > max {
 				minId += 1
 				keepGoing = true

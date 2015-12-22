@@ -38,7 +38,7 @@ func TestFsScoreLarge(t *testing.T) {
 	db := FsScoreDb{dataDir: "datatest2", nextId: 1}
 
 	for i := 0; i < 100; i++ {
-		db.Index(map[string]float32{"age": float32(1000 + 100 - i), "height": 100 + 1.0 + float32(i % 10) / 10.0})
+		db.Index(map[string]float32{"age": float32(1000 + 100 - i), "height": 100 + 1.0 + float32(i%10)/10.0})
 	}
 
 	if Isnt([]int64{1, 2}, db.Query(2, map[string]float32{"age": 1.0, "height": 0.1})) {

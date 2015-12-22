@@ -74,13 +74,13 @@ func (op *FieldDocItr) SetBounds(min, max float32) bool {
 				anyMore = true
 			} else {
 				lists := op.lists
-				lists[idx] = lists[len(lists) - 1]
-				op.lists = lists[:len(lists) - 1]
+				lists[idx] = lists[len(lists)-1]
+				op.lists = lists[:len(lists)-1]
 				keepGoing = true
 				break
 			}
 		}
-		if ! keepGoing {
+		if !keepGoing {
 			return anyMore
 		}
 		heap.Init(&op.lists)
@@ -91,7 +91,7 @@ func (op *FieldDocItr) Next(minId int64) bool {
 		return false
 	}
 	for op.lists[0].DocId() < minId {
-		if ! op.lists[0].Next(minId) {
+		if !op.lists[0].Next(minId) {
 			heap.Remove(&op.lists, 0)
 			if len(op.lists) == 0 {
 				return false

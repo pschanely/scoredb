@@ -3,26 +3,26 @@ package main
 import (
 	"fmt"
 	"testing"
-	)
+)
 
 type samplerecord map[string]float32
 
-var sample1 []samplerecord = []samplerecord {
-	samplerecord { "X":1, "Y":2, "Z":3},
-	samplerecord { "X":2, "Y":3, "Z":4},
-	samplerecord { "X":3, "Y":4, "Z":5},	
+var sample1 []samplerecord = []samplerecord{
+	samplerecord{"X": 1, "Y": 2, "Z": 3},
+	samplerecord{"X": 2, "Y": 3, "Z": 4},
+	samplerecord{"X": 3, "Y": 4, "Z": 5},
 }
 
 type normcase struct {
-	input []samplerecord
+	input  []samplerecord
 	output map[string]float32
 }
 
 func TestNormalizer(t *testing.T) {
-	cases := []normcase {
+	cases := []normcase{
 		{
-		input: sample1,
-		output: map[string]float32 {"X":-1.2247448,"Y":-1.2247448,"Z":-1.2247448,},
+			input:  sample1,
+			output: map[string]float32{"X": -1.2247448, "Y": -1.2247448, "Z": -1.2247448},
 		},
 	}
 	fmt.Println("Testing normalizer\n")

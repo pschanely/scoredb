@@ -37,7 +37,7 @@ func OpenPostingList(filename string, value float32) (io.Writer, error) {
 	var fd *os.File
 	var err error
 	if Exists(filename) {
-		fd, err = os.OpenFile(filename, os.O_RDWR | os.O_APPEND, 0666)
+		fd, err = os.OpenFile(filename, os.O_RDWR|os.O_APPEND, 0666)
 	} else {
 		fd, err = os.Create(filename)
 	}
@@ -83,7 +83,7 @@ func (db *FsScoreDb) BulkIndex(records []map[string]float32) []int64 {
 		for key, value := range record {
 			filename := FindPostingListFile(dataDir, key, value)
 			_, ok := fds[filename]
-			if ! ok {
+			if !ok {
 				fd, err := OpenPostingList(filename, value)
 				if err != nil {
 					panic(fmt.Sprintf("%v", err))
@@ -94,7 +94,7 @@ func (db *FsScoreDb) BulkIndex(records []map[string]float32) []int64 {
 			ids[idx] = docid
 		}
 	}
-	for _, fd := range(fds) {
+	for _, fd := range fds {
 		fd.(*os.File).Close()
 	}
 	return ids
@@ -112,7 +112,7 @@ func (db *FsScoreDb) Index(record map[string]float32) int64 {
 			panic(fmt.Sprintf("%v", err))
 		}
 		WritePostingListEntry(fd, docid, value)
-		
+
 		fd.(*os.File).Close()
 	}
 	return docid
@@ -134,9 +134,9 @@ func (db *FsScoreDb) Query(numResults int, weights map[string]float32) []int64 {
 }
 
 type PostingListDocItr struct {
-	score    float32
-	docId    int64
-	min, max float32
+	score       float32
+	docId       int64
+	min, max    float32
 	rangePrefix uint32
 	reader      io.ByteReader
 }
@@ -201,7 +201,7 @@ func (op *PostingListDocItr) Next(minId int64) bool {
 		if err != nil {
 			panic(fmt.Sprintf("%v", err))
 		}
-		if docId <  minId {
+		if docId < minId {
 			continue
 		}
 		valueBits = op.rangePrefix | uint32(b1)<<8 | uint32(b2)

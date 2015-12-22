@@ -1,7 +1,6 @@
 package main
 
-import (
-)
+import ()
 
 //in boundvals and elimvals, index 0 is the min and index 1 is the max.
 func Elim(eqmap map[string]float32, bval float32, boundvals map[string][2]float32) (elimvals map[string][2]float32) {

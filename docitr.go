@@ -18,7 +18,7 @@ type DocItr interface {
 	// Iterators need a call to Next(0) to intialize them to a real value; they all initially have a docId of -1
 	Next(minId int64) bool
 
-	DocId() int64   // doc id of current result, or -1 if the iterator has not been initialized
+	DocId() int64 // doc id of current result, or -1 if the iterator has not been initialized
 
 	Score() float32 // score of current result
 }
