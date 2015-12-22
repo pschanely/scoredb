@@ -2,7 +2,6 @@ package main
 
 import (
 	"container/heap"
-	"fmt"
 	"math"
 )
 
@@ -31,7 +30,6 @@ func NewFieldDocItr(field string, lists FieldDocItrs) *FieldDocItr {
 			max = curMax
 		}
 	}
-	fmt.Printf("FieldDocItr %v range: %v %v\n", field, min, max)
 	itr.min, itr.max = min, max
 	return itr
 }
@@ -68,19 +66,30 @@ func (op *FieldDocItr) GetBounds() (min, max float32) {
 func (op *FieldDocItr) SetBounds(min, max float32) bool {
 	op.min = min
 	op.max = max
-	anyMore := false
-	for _, subOp := range op.lists {
-		if subOp.SetBounds(min, max) {
-			anyMore = true
+	for {
+		keepGoing := false
+		anyMore := false
+		for idx, subOp := range op.lists {
+			if subOp.SetBounds(min, max) {
+				anyMore = true
+			} else {
+				lists := op.lists
+				lists[idx] = lists[len(lists) - 1]
+				op.lists = lists[:len(lists) - 1]
+				keepGoing = true
+				break
+			}
 		}
+		if ! keepGoing {
+			return anyMore
+		}
+		heap.Init(&op.lists)
 	}
-	return anyMore
 }
 func (op *FieldDocItr) Next() bool {
 	if len(op.lists) == 0 {
 		return false
 	}
-	//fmt.Printf("FieldDocItr %v sz %v done\n", op.field, len(op.lists))
 	minId := op.lists[0].DocId() + 1
 	for op.lists[0].DocId() < minId {
 		if op.lists[0].Next() {
@@ -94,7 +103,6 @@ func (op *FieldDocItr) Next() bool {
 	}
 	op.docId = op.lists[0].DocId()
 	op.score = op.lists[0].Score()
-	//fmt.Printf("FieldDocItr.Next() %v produces:  %v (score: %v)\n", op.field, op.docId, op.score)
 	return true
 }
 

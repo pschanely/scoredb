@@ -63,17 +63,17 @@ func (op *LinearDocItr) SetBounds(min, max float32) bool {
 		//Assing the new value as a min if the wieght is positive, and as a max if the weight is negative.
 		curMin, curMax := linComponent.docItr.GetBounds()
 		if curweight > 0 {
+			//fmt.Printf("LinearDocItr SetBounds min %v %v,%v\n", elimval, curMin, curMax)
 			if elimval < curMin {
 				elimval = curMin
 			}
 			linComponent.docItr.SetBounds(elimval, curMax)
-			//fmt.Printf("SetBounds min %v %v\n", elimval, curMax)
 		} else {
+			//fmt.Printf("LinearDocItr SetBounds max %v %v,%v\n", elimval, curMin, curMax)
 			if elimval > curMax {
 				elimval = curMax
 			}
 			linComponent.docItr.SetBounds(curMin, elimval)
-			//fmt.Printf("SetBounds max %v %v\n", curMin, elimval)
 		}
 	}
 	return true

@@ -32,15 +32,15 @@ func BridgeQuery(numResults int, weights map[string]float32, itr DocItr) []int64
 	minScore, maxScore := float32(math.Inf(-1)), float32(math.Inf(1))
 	for itr.Next() {
 		score := itr.Score()
-		if score < minScore {
-			continue
-		}
-		heap.Push(results, DocScore{DocId: itr.DocId(), Score: score})
-		if results.Len() > numResults {
-			minScore = heap.Pop(results).(DocScore).Score
-			itr.SetBounds(minScore, maxScore)
+		if score > minScore {
+			heap.Push(results, DocScore{DocId: itr.DocId(), Score: score})
+			if results.Len() > numResults {
+				minScore = heap.Pop(results).(DocScore).Score
+				itr.SetBounds(minScore, maxScore)
+			}
 		}
 	}
+
 	numResults = results.Len()
 	var resultIds = make([]int64, numResults)
 	for idx, docScore := range *results {

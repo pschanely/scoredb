@@ -74,23 +74,19 @@ func (op *LinearDocItr) Next() bool {
 				}
 			}
 			if curDocId > docId {
-				//fmt.Printf("Advancing doc id for cross field difference %v->%v\n", docId, curDocId)
 				docId = curDocId
 				keepGoing = true
 				break
 			}
 			score += part.coef * part.docItr.Score()
-			//fmt.Printf("new score at doc %v: %v\n", docId, score)
 		}
 		if ! keepGoing {
 			if score < min || score > max {
-				//fmt.Printf("LinearDocItr skipping poor result %v (score: %v) [%v:%v]\n", docId, score, min, max)
 				docId += 1
 				keepGoing = true
 			}
 		}
 	}
-	//fmt.Printf("LinearDocItr Next() %v (score: %v)\n", docId, score)
 	op.docId = docId
 	op.score = score
 	return true

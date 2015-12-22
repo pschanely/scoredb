@@ -37,10 +37,8 @@ func OpenPostingList(filename string, value float32) (io.Writer, error) {
 	var fd *os.File
 	var err error
 	if Exists(filename) {
-		//fmt.Printf("Appending to %v\n", filename)
 		fd, err = os.OpenFile(filename, os.O_RDWR | os.O_APPEND, 0666)
 	} else {
-		//fmt.Printf("Creating %v\n", filename)
 		fd, err = os.Create(filename)
 	}
 	if err != nil {
@@ -139,12 +137,11 @@ type PostingListDocItr struct {
 	score    float32
 	docId    int64
 	min, max float32
-
 	rangePrefix uint32
 	reader      io.ByteReader
 }
 
-func NewPostingListDocItr(reader io.ByteReader, rangePrefix uint32) *PostingListDocItr {
+func NewPostingListDocItr(reader io.ByteReader, rangePrefix uint32) DocItr {
 	itr := &PostingListDocItr{
 		score:       0.0,
 		docId:       -1,
@@ -160,7 +157,6 @@ func NewPostingListDocItr(reader io.ByteReader, rangePrefix uint32) *PostingList
 	} else {
 		itr.min, itr.max = bound2, bound1
 	}
-	//fmt.Printf("bucket min/max : %v %v\n", itr.min, itr.max)
 	return itr
 }
 
@@ -175,39 +171,40 @@ func (op *PostingListDocItr) GetBounds() (min, max float32) {
 	return op.min, op.max
 }
 func (op *PostingListDocItr) SetBounds(min, max float32) bool {
-	// TODO check vs bucket bounds
-	op.min = min
-	op.max = max
+	if min > op.min {
+		op.min = min
+	}
+	if max < op.max {
+		op.max = max
+	}
+	if op.min > op.max {
+		return false
+	}
 	return true
 }
 func (op *PostingListDocItr) Next() bool {
 	fd := op.reader
-	for {
-		docIncr, err := binary.ReadVarint(fd)
-		if err == io.EOF {
-			return false
-		}
-		if err != nil {
-			panic(fmt.Sprintf("%v", err))
-		}
-		var valueBits uint32
-		b1, err := fd.ReadByte()
-		if err != nil {
-			panic(fmt.Sprintf("%v", err))
-		}
-		b2, err := fd.ReadByte()
-		if err != nil {
-			panic(fmt.Sprintf("%v", err))
-		}
-		valueBits = op.rangePrefix | uint32(b1)<<8 | uint32(b2)
-		score := math.Float32frombits(valueBits)
-		//fmt.Printf("PostingListDocItr Next(): %v (score: %v) [%v:%v]\n", docIncr, score, op.min, op.max)
-		op.docId = docIncr
-		if op.min <= score && score <= op.max {
-			op.score = score
-			return true
-		}
+	docIncr, err := binary.ReadVarint(fd)
+	if err == io.EOF {
+		return false
 	}
+	if err != nil {
+		panic(fmt.Sprintf("%v", err))
+	}
+	var valueBits uint32
+	b1, err := fd.ReadByte()
+	if err != nil {
+		panic(fmt.Sprintf("%v", err))
+	}
+	b2, err := fd.ReadByte()
+	if err != nil {
+		panic(fmt.Sprintf("%v", err))
+	}
+	valueBits = op.rangePrefix | uint32(b1)<<8 | uint32(b2)
+	score := math.Float32frombits(valueBits)
+	op.docId = docIncr
+	op.score = score
+	return true
 }
 
 func WritePostingListEntry(fd io.Writer, docIncr int64, score float32) {
@@ -216,6 +213,5 @@ func WritePostingListEntry(fd io.Writer, docIncr int64, score float32) {
 	scoreBits := math.Float32bits(score)
 	buf[sz+1] = byte((scoreBits >> 8) & 0xff)
 	buf[sz+2] = byte(scoreBits & 0xff)
-	//fmt.Printf("write score %v -> %#x   buf: %v\n", score, scoreBits, buf)
 	fd.Write(buf[:sz+2])
 }
