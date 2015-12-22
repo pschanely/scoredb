@@ -182,29 +182,34 @@ func (op *PostingListDocItr) SetBounds(min, max float32) bool {
 	}
 	return true
 }
-func (op *PostingListDocItr) Next() bool {
+func (op *PostingListDocItr) Next(minId int64) bool {
 	fd := op.reader
-	docIncr, err := binary.ReadVarint(fd)
-	if err == io.EOF {
-		return false
+	for {
+		docId, err := binary.ReadVarint(fd)
+		if err == io.EOF {
+			return false
+		}
+		if err != nil {
+			panic(fmt.Sprintf("%v", err))
+		}
+		var valueBits uint32
+		b1, err := fd.ReadByte()
+		if err != nil {
+			panic(fmt.Sprintf("%v", err))
+		}
+		b2, err := fd.ReadByte()
+		if err != nil {
+			panic(fmt.Sprintf("%v", err))
+		}
+		if docId <  minId {
+			continue
+		}
+		valueBits = op.rangePrefix | uint32(b1)<<8 | uint32(b2)
+		score := math.Float32frombits(valueBits)
+		op.docId = docId
+		op.score = score
+		return true
 	}
-	if err != nil {
-		panic(fmt.Sprintf("%v", err))
-	}
-	var valueBits uint32
-	b1, err := fd.ReadByte()
-	if err != nil {
-		panic(fmt.Sprintf("%v", err))
-	}
-	b2, err := fd.ReadByte()
-	if err != nil {
-		panic(fmt.Sprintf("%v", err))
-	}
-	valueBits = op.rangePrefix | uint32(b1)<<8 | uint32(b2)
-	score := math.Float32frombits(valueBits)
-	op.docId = docIncr
-	op.score = score
-	return true
 }
 
 func WritePostingListEntry(fd io.Writer, docIncr int64, score float32) {

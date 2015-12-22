@@ -14,19 +14,19 @@ func TestFieldOp(t *testing.T) {
 		[]int64{2, 5},
 	)
 	fieldop := FieldDocItr{lists: FieldDocItrs{l1, l2}}
-	if !fieldop.Next() {
+	if !fieldop.Next(0) {
 		t.Error()
 	}
 	if fieldop.DocId() != 1 {
 		t.Error()
 	}
-	if !fieldop.Next() {
+	if !fieldop.Next(2) {
 		t.Error()
 	}
 	if fieldop.DocId() != 2 {
 		t.Error()
 	}
-	if !fieldop.Next() {
+	if !fieldop.Next(3) {
 		t.Error()
 	}
 	if fieldop.DocId() != 5 {
@@ -35,13 +35,13 @@ func TestFieldOp(t *testing.T) {
 	if !fieldop.SetBounds(0.75, 1.0) {
 		t.Error()
 	}
-	if !fieldop.Next() {
+	if !fieldop.Next(6) {
 		t.Error()
 	}
 	if id := fieldop.DocId(); id != 8 {
 		t.Error(id)
 	}
-	if fieldop.Next() {
+	if fieldop.Next(9) {
 		t.Error()
 	}
 }

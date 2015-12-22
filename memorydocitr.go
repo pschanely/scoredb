@@ -45,18 +45,21 @@ func (op *MemoryDocItr) SetBounds(min, max float32) bool {
 	return true
 }
 func (op *MemoryDocItr) Name() string { return "MemoryDocItr" }
-func (op *MemoryDocItr) Next() bool {
-	op.index += 1
-	index := op.index
-	if index < len(op.scores) {
-		score := op.scores[index]
-		if score < op.min || score > op.max {
-			return op.Next()
+func (op *MemoryDocItr) Next(minId int64) bool {
+	for {
+		op.index += 1
+		index := op.index
+		if index >= len(op.docs) {
+			return false
 		}
-		op.score = score
-		op.docId = op.docs[index]
-		return true
-	} else {
-		return false
+		docId := op.docs[index]
+		if docId >= minId {
+			score := op.scores[index]
+			if score >= op.min && score <= op.max {
+				op.score = score
+				op.docId = op.docs[index]
+				return true
+			}
+		}
 	}
 }

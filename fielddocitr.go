@@ -86,19 +86,18 @@ func (op *FieldDocItr) SetBounds(min, max float32) bool {
 		heap.Init(&op.lists)
 	}
 }
-func (op *FieldDocItr) Next() bool {
+func (op *FieldDocItr) Next(minId int64) bool {
 	if len(op.lists) == 0 {
 		return false
 	}
-	minId := op.lists[0].DocId() + 1
 	for op.lists[0].DocId() < minId {
-		if op.lists[0].Next() {
-			heap.Fix(&op.lists, 0)
-		} else {
+		if ! op.lists[0].Next(minId) {
 			heap.Remove(&op.lists, 0)
 			if len(op.lists) == 0 {
 				return false
 			}
+		} else {
+			heap.Fix(&op.lists, 0)
 		}
 	}
 	op.docId = op.lists[0].DocId()
@@ -114,7 +113,7 @@ func SyncOperations(operations []DocItr, toDocId int64) (docId int64, score bool
 		for _, subOp := range operations {
 			docId := subOp.DocId()
 			for docId < toDocId {
-				if !subOp.Next() {
+				if !subOp.Next(docId) {
 					return toDocId, false
 				}
 				docId = subOp.DocId()

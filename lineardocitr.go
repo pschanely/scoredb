@@ -54,8 +54,7 @@ func (op *LinearDocItr) GetBounds() (min, max float32) { return op.min, op.max }
 func (op *LinearDocItr) Score() float32 {
 	return op.score
 }
-func (op *LinearDocItr) Next() bool {
-	docId := op.docId + 1
+func (op *LinearDocItr) Next(minId int64) bool {
 	min, max := op.min, op.max
 	keepGoing := true
 	var score float32
@@ -66,15 +65,15 @@ func (op *LinearDocItr) Next() bool {
 			var curDocId int64
 			for {
 				curDocId = part.docItr.DocId()
-				if curDocId >= docId {
+				if curDocId >= minId {
 					break
 				}
-				if !part.docItr.Next() {
+				if !part.docItr.Next(minId) {
 					return false
 				}
 			}
-			if curDocId > docId {
-				docId = curDocId
+			if curDocId > minId {
+				minId = curDocId
 				keepGoing = true
 				break
 			}
@@ -82,12 +81,12 @@ func (op *LinearDocItr) Next() bool {
 		}
 		if ! keepGoing {
 			if score < min || score > max {
-				docId += 1
+				minId += 1
 				keepGoing = true
 			}
 		}
 	}
-	op.docId = docId
+	op.docId = minId
 	op.score = score
 	return true
 }
