@@ -73,6 +73,7 @@ func (op *FieldDocItr) SetBounds(min, max float32) bool {
 			if subOp.SetBounds(min, max) {
 				anyMore = true
 			} else {
+				subOp.Close()
 				lists := op.lists
 				lists[idx] = lists[len(lists)-1]
 				op.lists = lists[:len(lists)-1]
@@ -86,6 +87,13 @@ func (op *FieldDocItr) SetBounds(min, max float32) bool {
 		heap.Init(&op.lists)
 	}
 }
+
+func (op *FieldDocItr) Close() {
+	for _, list := range op.lists {
+		list.Close()
+	}
+}
+
 func (op *FieldDocItr) Next(minId int64) bool {
 	if len(op.lists) == 0 {
 		return false
@@ -94,6 +102,7 @@ func (op *FieldDocItr) Next(minId int64) bool {
 		if !op.lists[0].Next(minId) {
 			heap.Remove(&op.lists, 0)
 			if len(op.lists) == 0 {
+				//fmt.Printf("FieldDocItr Next(%v) %v END\n", minId, op.field)
 				return false
 			}
 		} else {
@@ -102,6 +111,7 @@ func (op *FieldDocItr) Next(minId int64) bool {
 	}
 	op.docId = op.lists[0].DocId()
 	op.score = op.lists[0].Score()
+	//fmt.Printf("FieldDocItr Next(%v) %v %v %v\n", minId, op.field, op.docId, op.score)
 	return true
 }
 

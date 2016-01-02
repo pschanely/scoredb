@@ -42,11 +42,12 @@ func BridgeQuery(numResults int, weights map[string]float32, itr DocItr) []int64
 			}
 		}
 	}
+	itr.Close()
 
 	numResults = results.Len()
 	var resultIds = make([]int64, numResults)
-	for idx, docScore := range *results {
-		resultIds[numResults-(idx+1)] = docScore.DocId
+	for idx, _ := range resultIds {
+		resultIds[numResults-(idx+1)] = heap.Pop(results).(DocScore).DocId
 	}
 	return resultIds
 }

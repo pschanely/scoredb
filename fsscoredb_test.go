@@ -18,30 +18,47 @@ func Isnt(r1, r2 []int64) bool {
 	return false
 }
 
+func Query(db *FsScoreDb, numResults int, weights map[string]float32) []int64 {
+	result, _ := db.Query(numResults, weights)
+	return result
+}
+
 func TestFsScore(t *testing.T) {
-	db := FsScoreDb{dataDir: "datatest1", nextId: 1}
-	db.Index(map[string]float32{"age": 32, "height": 2.0})
-	db.Index(map[string]float32{"age": 25, "height": 1.8})
-	db.Index(map[string]float32{"age": 16, "height": 2.5})
-	if Isnt([]int64{1, 2}, db.Query(2, map[string]float32{"age": 1.0, "height": 1.0})) {
+	db := NewFsScoreDb("datatest1")
+	fmt.Print(" =================== \n")
+	_, err := db.Index(map[string]float32{"age": 32, "height": 2.0})
+	if err != nil {
+		t.Error(fmt.Sprintf("%v", err))
+	}
+	_, err = db.Index(map[string]float32{"age": 25, "height": 1.8})
+	if err != nil {
+		t.Error(fmt.Sprintf("%v", err))
+	}
+	_, err = db.Index(map[string]float32{"age": 16, "height": 2.5})
+	if err != nil {
+		t.Error(fmt.Sprintf("%v", err))
+	}
+	fmt.Print(" ------------------- \n")
+	if Isnt([]int64{1, 2}, Query(db, 2, map[string]float32{"age": 1.0, "height": 1.0})) {
 		t.Error()
 	}
-	if Isnt([]int64{1}, db.Query(1, map[string]float32{"age": 1.0, "height": 1.0})) {
+	fmt.Print(" =================== \n")
+	if Isnt([]int64{1}, Query(db, 1, map[string]float32{"age": 1.0, "height": 1.0})) {
 		t.Error()
 	}
-	if Isnt([]int64{3, 1}, db.Query(2, map[string]float32{"age": 0.1, "height": 10.0})) {
+	if Isnt([]int64{3, 1}, Query(db, 2, map[string]float32{"age": 0.1, "height": 10.0})) {
 		t.Error()
 	}
 }
 
 func TestFsScoreLarge(t *testing.T) {
-	db := FsScoreDb{dataDir: "datatest2", nextId: 1}
+	db := NewFsScoreDb("datatest2")
 
 	for i := 0; i < 100; i++ {
 		db.Index(map[string]float32{"age": float32(1000 + 100 - i), "height": 100 + 1.0 + float32(i%10)/10.0})
 	}
 
-	if Isnt([]int64{1, 2}, db.Query(2, map[string]float32{"age": 1.0, "height": 0.1})) {
+	if Isnt([]int64{1, 2}, Query(db, 2, map[string]float32{"age": 1.0, "height": 0.1})) {
 		t.Error("")
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	//"fmt"
 	"math"
 	"sort"
 )
@@ -53,6 +54,11 @@ func (op *LinearDocItr) GetBounds() (min, max float32) { return op.min, op.max }
 func (op *LinearDocItr) Score() float32 {
 	return op.score
 }
+func (op *LinearDocItr) Close() {
+	for _, part := range op.parts {
+		part.docItr.Close()
+	}
+}
 func (op *LinearDocItr) Next(minId int64) bool {
 	min, max := op.min, op.max
 	keepGoing := true
@@ -87,5 +93,6 @@ func (op *LinearDocItr) Next(minId int64) bool {
 	}
 	op.docId = minId
 	op.score = score
+	//fmt.Printf("LinearDocItr Next(%v) [%v:%v] = %v score:%v\n", minId, op.min, op.max, op.docId, score)
 	return true
 }

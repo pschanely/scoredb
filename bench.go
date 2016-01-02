@@ -101,7 +101,7 @@ func RunBenchmark(db Db, csvFilename string) error {
 	}
 
 	log.Println("Querying ...")
-	results := db.Query(nResults, record)
+	results, err := db.Query(nResults, record)
 
 	fmt.Printf("Found %d results\n", len(results))
 

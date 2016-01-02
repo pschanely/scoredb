@@ -45,6 +45,7 @@ func (op *MemoryDocItr) SetBounds(min, max float32) bool {
 	return true
 }
 func (op *MemoryDocItr) Name() string { return "MemoryDocItr" }
+func (op *MemoryDocItr) Close()       {}
 func (op *MemoryDocItr) Next(minId int64) bool {
 	for {
 		op.index += 1

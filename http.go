@@ -55,7 +55,11 @@ func (sds *ScoreDbServer) ServeIndex(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Could not parse json", 400)
 		return
 	}
-	recordId := sds.db.Index(record)
+	recordId, err := sds.db.Index(record)
+	if err != nil {
+		http.Error(w, "Could not index data", 500)
+		return
+	}
 
 	fmt.Fprintf(w, "%d\n", recordId)
 }
@@ -97,7 +101,7 @@ func (sds *ScoreDbServer) ServeQuery(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ids := sds.db.Query(n, record)
+	ids, err := sds.db.Query(n, record)
 	idsSerialized, err := serializeIds(ids)
 	if err != nil {
 		// this shouldn't happen
@@ -156,7 +160,11 @@ func (sds *ScoreDbServer) ServeCsvIndex(w http.ResponseWriter, req *http.Request
 			record[recordKey] = val32
 		}
 		if len(record) > 0 {
-			id := sds.db.Index(record)
+			id, err := sds.db.Index(record)
+			if err != nil {
+				http.Error(w, "Error indexing", 500)
+				return
+			}
 			ids = append(ids, id)
 		}
 	}
