@@ -23,7 +23,6 @@ type LinearDocItr struct {
 	docId    int64
 	min, max float32
 	parts    []LinearComponent
-	bounds   map[string][2]float32
 }
 
 func NewLinearDocItr(parts LinearComponents) *LinearDocItr {
@@ -94,5 +93,48 @@ func (op *LinearDocItr) Next(minId int64) bool {
 	op.docId = minId
 	op.score = score
 	//fmt.Printf("LinearDocItr Next(%v) [%v:%v] = %v score:%v\n", minId, op.min, op.max, op.docId, score)
+	return true
+}
+
+func (op *LinearDocItr) SetBounds(min, max float32) bool {
+	//fmt.Printf("LinearDocItr SetBounds %v %v\n", min, max)
+	op.min = min
+	op.max = max
+
+	for curfield, linComponent := range op.parts {
+		//To start, divige the bottom value by the weight of the variable we're testing for
+		curweight := linComponent.coef
+		elimval := min
+		for otherfactor, otherComponent := range op.parts {
+			otherweight := otherComponent.coef
+			//Then subtract the other weights times their appropriate maxes or mins
+			if curfield != otherfactor {
+				otherMin, otherMax := otherComponent.docItr.GetBounds()
+				var minOrMax float32
+				if otherweight < 0 {
+					minOrMax = otherMin
+				} else {
+					minOrMax = otherMax
+				}
+				elimval -= otherweight * minOrMax
+			}
+		}
+		elimval /= curweight
+		//Assing the new value as a min if the wieght is positive, and as a max if the weight is negative.
+		curMin, curMax := linComponent.docItr.GetBounds()
+		if curweight > 0 {
+			//fmt.Printf("LinearDocItr SetBounds min %v %v,%v\n", elimval, curMin, curMax)
+			if elimval < curMin {
+				elimval = curMin
+			}
+			linComponent.docItr.SetBounds(elimval, curMax)
+		} else {
+			//fmt.Printf("LinearDocItr SetBounds max %v %v,%v\n", elimval, curMin, curMax)
+			if elimval > curMax {
+				elimval = curMax
+			}
+			linComponent.docItr.SetBounds(curMin, elimval)
+		}
+	}
 	return true
 }

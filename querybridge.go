@@ -26,8 +26,11 @@ func (h *ResultSet) Pop() interface{} {
 	return x
 }
 
-func BridgeQuery(numResults int, weights map[string]float32, itr DocItr) []int64 {
-	results := &ResultSet{}
+func BridgeQuery(query Query, itr DocItr) []int64 {
+	offset, limit := query.Offset, query.Limit
+	numResults := offset + limit
+	resultData := make(ResultSet, 0, numResults+1)
+	results := &resultData
 	heap.Init(results)
 	minScore, maxScore := float32(math.Inf(-1)), float32(math.Inf(1))
 	docId := int64(-1)
@@ -43,6 +46,11 @@ func BridgeQuery(numResults int, weights map[string]float32, itr DocItr) []int64
 		}
 	}
 	itr.Close()
+
+	for offset > 0 && len(resultData) > 0 {
+		heap.Pop(results)
+		offset -= 1
+	}
 
 	numResults = results.Len()
 	var resultIds = make([]int64, numResults)

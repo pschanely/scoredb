@@ -34,8 +34,6 @@ func RunBenchmark(db Db, csvFilename string) error {
 		colMap[colIdx] = colName
 	}
 
-	// recordIndexIds := make([]int64, 0)
-
 	log.Println("Indexing ...")
 
 	recordGroupSize := 100000
@@ -85,25 +83,17 @@ func RunBenchmark(db Db, csvFilename string) error {
 	log.Println("Indexing ... done")
 
 	nResults := 10
-	record := map[string]float32{
-		"age":                    21,
-		"depart_for_work":        0,
-		"fertility":              2,
-		"weekly_work_hours":      35,
-		"last_week_work_hours":   0,
-		"wages":                  197111,
-		"self_employed_income":   0,
-		"poverty_percentage":     501,
-		"carpool_riders":         0,
-		"sex":                    1,
-		"traveltime_to_work":     0,
-		"military_service_years": 0,
-	}
-
 	log.Println("Querying ...")
-	results, err := db.Query(nResults, record)
+	results, err := db.Query(Query{
+		Limit: nResults,
+		Scorer: []interface{}{
+			"+",
+			[]interface{}{"field", "age"},
+			[]interface{}{"field", "weekly_work_hours"},
+		},
+	})
 
-	fmt.Printf("Found %d results\n", len(results))
+	fmt.Printf("Found %d results\n", len(results.Ids))
 
 	log.Println("Querying ... done")
 

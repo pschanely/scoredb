@@ -364,20 +364,50 @@ func (db *FsScoreDb) Index(record map[string]float32) (int64, error) {
 	return docid, nil
 }
 
-func (db *FsScoreDb) Query(numResults int, weights map[string]float32) ([]int64, error) {
-	fieldItrs := make([]LinearComponent, len(weights))
-	idx := 0
-	for key, weight := range weights {
+func (db *FsScoreDb) ScorerToDocItr(scorer []interface{}) (DocItr, error) {
+	args := scorer[1:]
+	switch scorer[0].(string) {
+	case "+":
+		fieldItrs := make([]SumComponent, len(args))
+		for idx, v := range args {
+			itr, err := db.ScorerToDocItr(v.([]interface{}))
+			fieldItrs[idx] = SumComponent{docItr: itr}
+			if err != nil {
+				return nil, err
+			}
+		}
+		return NewSumDocItr(fieldItrs), nil
+	case "scale":
+		if len(args) != 2 {
+			return nil, errors.New("Wrong number of arguments to scale function")
+		}
+		itr, err := db.ScorerToDocItr(args[1].([]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		return &ScaleDocItr{args[0].(float32), itr}, nil
+	case "field":
+		if len(args) != 1 {
+			return nil, errors.New("Wrong number of arguments to field function")
+		}
+		key := args[0].(string)
 		files := db.fields[key]
 		itrs := make([]DocItr, len(files))
 		for fileIdx, fileInfo := range files {
 			itrs[fileIdx] = NewPostingListDocItr(math.Float32bits(fileInfo.minVal), fileInfo.path, fileInfo.header)
 		}
-		fieldItrs[idx].docItr = NewFieldDocItr(key, itrs)
-		fieldItrs[idx].coef = weight
-		idx += 1
+		return NewFieldDocItr(key, itrs), nil
+	default:
+		return nil, errors.New(fmt.Sprintf("Scoring function '%s' is not recognized", scorer[0]))
 	}
-	return BridgeQuery(numResults, weights, NewLinearDocItr(fieldItrs)), nil
+}
+
+func (db *FsScoreDb) Query(query Query) (QueryResult, error) {
+	docItr, err := db.ScorerToDocItr(query.Scorer)
+	if err != nil {
+		return QueryResult{}, err
+	}
+	return QueryResult{BridgeQuery(query, docItr)}, nil
 }
 
 type PostingListDocItr struct {

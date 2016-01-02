@@ -8,8 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strconv"
-	"strings"
 )
 
 type ScoreDbServer struct {
@@ -64,50 +64,59 @@ func (sds *ScoreDbServer) ServeIndex(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, "%d\n", recordId)
 }
 
+func QueryIntVal(queryParams url.Values, key string, defaultValue int) (int, error) {
+	vals, ok := queryParams[key]
+	if !ok || len(vals) == 0 {
+		return defaultValue, nil
+	}
+	return strconv.Atoi(vals[0])
+}
+
 func (sds *ScoreDbServer) ServeQuery(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {
 		http.NotFound(w, req)
 		return
 	}
 
-	// default to limit 10
-	n := 10
-
-	record := make(map[string]float32)
-
 	queryParams := req.URL.Query()
-	for reqKey, reqVal := range queryParams {
-		if strings.HasPrefix(reqKey, "key_") {
-			key := strings.TrimPrefix(reqKey, "key_")
-			// assume we always have at least one val?
-			// otherwise we wouldn't have gotten an iteration?
-			firstVal := reqVal[0]
-			val64, err := strconv.ParseFloat(firstVal, 32)
-			if err == nil {
-				val32 := float32(val64)
-				record[key] = val32
-			}
-		} else if reqKey == "n" {
-			firstVal := reqVal[0]
-			val64, err := strconv.ParseInt(firstVal, 10, 0)
-			if err != nil {
-				n = int(val64)
-			}
-		}
-	}
 
-	if len(record) == 0 {
-		http.Error(w, "No record keys found", 400)
+	offset, err := QueryIntVal(queryParams, "offset", 0)
+	if err != nil {
+		http.Error(w, "Invalid value for offset", 400)
 		return
 	}
 
-	ids, err := sds.db.Query(n, record)
-	idsSerialized, err := serializeIds(ids)
+	limit, err := QueryIntVal(queryParams, "limit", 10)
 	if err != nil {
-		// this shouldn't happen
-		panic(err)
+		http.Error(w, "Invalid value for limit", 400)
+		return
 	}
-	fmt.Fprintf(w, "%s\n", idsSerialized)
+
+	scorerStrings, ok := queryParams["score"]
+	if !ok || len(scorerStrings) == 0 {
+		http.Error(w, "No score function was specified", 400)
+		return
+	}
+	scorer := new([]interface{})
+	err = json.Unmarshal([]byte(scorerStrings[0]), scorer)
+	if err != nil {
+		http.Error(w, "Score parameter is not valid JSON", 400)
+		return
+	}
+
+	query := Query{
+		Offset: offset,
+		Limit:  limit,
+		Scorer: *scorer,
+	}
+
+	results, err := sds.db.Query(query)
+	response, err := json.Marshal(results)
+	if err != nil {
+		http.Error(w, "Internal Error in ScoreDB; please report", 500)
+		return
+	}
+	fmt.Fprintf(w, "%s\n", response)
 }
 
 func (sds *ScoreDbServer) ServeCsvIndex(w http.ResponseWriter, req *http.Request) {

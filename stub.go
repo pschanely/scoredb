@@ -18,6 +18,6 @@ func (sdb *StubDb) BulkIndex(records []map[string]float32) ([]int64, error) {
 	return ids, nil
 }
 
-func (sdb *StubDb) Query(numResults int, weights map[string]float32) ([]int64, error) {
-	return []int64{7, 42}, nil
+func (db *StubDb) Query(query Query) (QueryResult, error) {
+	return QueryResult{Ids: []int64{7, 42}}, nil
 }
