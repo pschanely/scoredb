@@ -122,10 +122,13 @@ func (op *SumDocItr) SetBounds(min, max float32) bool {
 		if newMin < curMin {
 			newMin = curMin
 		}
-		if newMax < curMax {
+		if newMax > curMax {
 			newMax = curMax
 		}
-		component.docItr.SetBounds(newMin, newMax)
+		if newMin != curMin || newMax != curMax {
+			//fmt.Printf("SumDocItr SetBounds for component %v %v\n", newMin, newMax)
+			component.docItr.SetBounds(newMin, newMax)
+		}
 	}
 	return true
 }
