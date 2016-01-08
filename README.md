@@ -31,13 +31,19 @@ ScoreDB is minimalistic and highly specialized; it is intended to just act as on
 * ScoreDB can be run as a RESTful server, or embedded into a larger Go system.
 * ScoreDB has an append-only design, and it is safe to move live databases with a simple cp or rsync, or back them up with generic incremental backup systems.
 
-# About
+# Thanks
 
-ScoreDB was started as a hackathon proof of concept at the Samsung Accelerator with some amazing folks:
+Thanks are due to the [Samsung Accelerator](http://samsungaccelerator.com) which let us start this project as a hackathon proof of concept.  Scoredb was built with this awesome team (in lexicographic order):
 
-* David Jay
-* Pierce 
-* Rob 
-* Evan 
+* David
+* Evan
+* Pierce
+* Phil Schanely (https://github.com/pschanely)
+* Rob
 
-I've continued to work on optimization and usability issues since.
+# Plugs
+
+Check out of some of our other side projects too:
+
+* [wildflower-touch](https://github.com/pschanely/wildflower-touch) is proof-of-concept programming IDE and language for touch devices.
+* [music-tonight](http://musictonightapp.com) makes playlists of bands playing near you, tonight.
