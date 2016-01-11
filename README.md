@@ -15,6 +15,8 @@ The ids in each file are strictly increasing; this means that we can traverse se
 As we traverse the buckets, we score the objects produced and put them into a candidate result set.  The result set is capped at the limit specified by the user.  As poorly scoring results get kicked out of the candidate result set, we can infer a lower bound on the final score.  With some math, we can propagate that lower bound backwards through the scoring function to infer bounds on the individual fields.  These bounds may then be used to stop traversing very poorly scoring buckets that could not produce a good enough final score.  In this manner, as the candidate result set gets better and better, the system can eliminate more and more buckets to arrive at a result very quickly.
 Note that several factors can influence the effectiveness of this approach: combining fields with addition, multiplication, and min() allow us to infer useful bounds.  Combining fields with a max() function does not, because a bad value in one field can be completely overcome by a good value in another.  Also, combining many fields instead of just a few can drastically change the rate of elimination, making the query take longer.
 
+![Graph of bucket elimination during execution](bucket_execution.png)
+
 # Limitations
 
 ScoreDB is minimalistic and highly specialized; it is intended to just act as one piece of a larger system:
@@ -33,13 +35,13 @@ ScoreDB is minimalistic and highly specialized; it is intended to just act as on
 
 # Thanks
 
-Thanks are due to the [Samsung Accelerator](http://samsungaccelerator.com) which let us start this project as a hackathon proof of concept.  Scoredb was built with this awesome team (in lexicographic order):
+Thanks are due to the [Samsung Accelerator](http://samsungaccelerator.com) which let us start this project as a hackathon proof of concept.  Scoredb was built with this awesome team (in github lexicographic order!):
 
-* David
-* Evan
-* Pierce
-* Phil Schanely (https://github.com/pschanely)
-* Rob
+* https://github.com/davidgljay
+* https://github.com/ploxiln
+* https://github.com/pschanely (Phil Schanely)
+* https://github.com/rmarianski
+* https://github.com/sleepylemur
 
 # Plugs
 

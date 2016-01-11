@@ -70,7 +70,7 @@ func MaxDocsForFile(fileInfo *FileInfo) int64 {
 		return math.MaxInt64
 	}
 	fixedFractionBits := 23 - fileInfo.numVariableBits // 23 bits is size of the fraction part
-	return 2*2458 + (1 << (fixedFractionBits))
+	return 30*1568 + (1 << (fixedFractionBits))
 }
 
 func Exists(path string) bool {
@@ -408,6 +408,21 @@ func (db *FsScoreDb) Query(query Query) (QueryResult, error) {
 		return QueryResult{}, err
 	}
 	return QueryResult{BridgeQuery(query, docItr)}, nil
+}
+
+func (db *FsScoreDb) LinearQuery(numResults int, weights map[string]float32) []int64 {
+	scorer := make([]interface{}, len(weights)+1)
+	scorer[0] = "+"
+	idx := 1
+	for key, weight := range weights {
+		scorer[idx] = []interface{}{"scale", weight, []interface{}{"field", key}}
+		idx += 1
+	}
+	result, _ := db.Query(Query{
+		Limit:  numResults,
+		Scorer: scorer,
+	})
+	return result.Ids
 }
 
 type PostingListDocItr struct {

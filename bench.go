@@ -5,15 +5,20 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
+	"time"
 )
 
-func RunBenchmark(db Db, csvFilename string) error {
+type LinearCombinationBackend interface {
+	BulkIndex(records []map[string]float32) ([]int64, error)
+	LinearQuery(numResults int, coefs map[string]float32) []int64
+}
+
+func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize int) ([]int64, []int64, error) {
 	fp, err := os.Open(csvFilename)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	defer fp.Close()
 
@@ -22,9 +27,9 @@ func RunBenchmark(db Db, csvFilename string) error {
 
 	header, err := csvReader.Read()
 	if err == io.EOF {
-		return fmt.Errorf("Missing csv header")
+		return nil, nil, fmt.Errorf("Missing csv header")
 	} else if err != nil {
-		return fmt.Errorf("Error reading csv header")
+		return nil, nil, fmt.Errorf("Error reading csv header")
 	}
 
 	// TODO ensure we have at least one value?
@@ -34,10 +39,39 @@ func RunBenchmark(db Db, csvFilename string) error {
 		colMap[colIdx] = colName
 	}
 
-	log.Println("Indexing ...")
+	indexTimes := []int64{}
+	queryTimes := []int64{}
+	nResults := 10
+	weights := []map[string]float32{
+		map[string]float32{
+			"age":   100.0,
+			"wages": 1.0,
+		},
+		map[string]float32{
+			"age":   1000.0,
+			"wages": 1.0,
+		},
+		map[string]float32{
+			"age":   10000.0,
+			"wages": 1.0,
+		},
+		map[string]float32{
+			"sex":               40.0,
+			"weekly_work_hours": 1.0,
+		},
+		map[string]float32{
+			"fertility": 10.0,
+			"age":       1.0,
+		},
+		map[string]float32{
+			"sex":               20.0,
+			"fertility":         5.0,
+			"age":               1.0,
+			"weekly_work_hours": 1.0,
+		},
+	}
 
-	recordGroupSize := 100000
-	recordGroup := make([]map[string]float32, recordGroupSize)
+	recordGroup := make([]map[string]float32, bucketSize)
 	curGroupSize := 0
 
 	for {
@@ -45,7 +79,7 @@ func RunBenchmark(db Db, csvFilename string) error {
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return fmt.Errorf("Error reading csv contents")
+			return nil, nil, fmt.Errorf("Error reading csv contents")
 		}
 		record := make(map[string]float32, len(row))
 		for fieldIdx, fieldValue := range row {
@@ -68,8 +102,17 @@ func RunBenchmark(db Db, csvFilename string) error {
 
 			recordGroup[curGroupSize] = record
 			curGroupSize++
-			if curGroupSize == recordGroupSize {
+			if curGroupSize == bucketSize {
+
+				t0 := time.Now().UnixNano()
 				db.BulkIndex(recordGroup)
+				t1 := time.Now().UnixNano()
+				results := db.LinearQuery(nResults, weights[0])
+				fmt.Printf("Q results: %v\n", results)
+				t2 := time.Now().UnixNano()
+				indexTimes = append(indexTimes, t1-t0)
+				queryTimes = append(queryTimes, t2-t1)
+
 				curGroupSize = 0
 			}
 		}
@@ -80,25 +123,5 @@ func RunBenchmark(db Db, csvFilename string) error {
 		db.BulkIndex(finalRecords)
 	}
 
-	log.Println("Indexing ... done")
-
-	nResults := 10
-	log.Println("Querying ...")
-	results, err := db.Query(Query{
-		Limit: nResults,
-		Scorer: []interface{}{
-			"+",
-			[]interface{}{"field", "age"},
-			[]interface{}{"field", "weekly_work_hours"},
-		},
-	})
-
-	fmt.Printf("Found %d results\n", len(results.Ids))
-
-	log.Println("Querying ... done")
-
-	// the db is indexed now ... need to measure the query times now
-	// using some standard queries?
-
-	return nil
+	return indexTimes, queryTimes, nil
 }
