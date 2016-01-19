@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"fmt"
 	"math"
 	"sort"
 )
@@ -92,15 +91,6 @@ func (op *SumDocItr) Next(minId int64) bool {
 	//fmt.Printf("SumDocItr Next(%v) [%v:%v] = %v score:%v\n", minId, op.min, op.max, op.docId, score)
 	return true
 }
-
-/*
-* [01234567890]
-* [ XXXXX     ] 1,5
-* [  XX       ] 2,3
-* [   XXXXXXX ] 3,9
-* [   ...XXXX ] 6,9
-* [           ]
- */
 
 func (op *SumDocItr) SetBounds(min, max float32) bool {
 	//fmt.Printf("SumDocItr SetBounds %v %v\n", min, max)

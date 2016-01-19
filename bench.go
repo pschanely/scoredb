@@ -15,7 +15,22 @@ type LinearCombinationBackend interface {
 	LinearQuery(numResults int, coefs map[string]float32) []int64
 }
 
-func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize int) ([]int64, []int64, error) {
+func (db BaseDb) LinearQuery(numResults int, weights map[string]float32) []int64 {
+	scorer := make([]interface{}, len(weights)+1)
+	scorer[0] = "sum"
+	idx := 1
+	for key, weight := range weights {
+		scorer[idx] = []interface{}{"scale", weight, []interface{}{"field", key}}
+		idx += 1
+	}
+	result, _ := db.Query(Query{
+		Limit:  numResults,
+		Scorer: scorer,
+	})
+	return result.Ids
+}
+
+func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize int) ([]int64, [][]int64, error) {
 	fp, err := os.Open(csvFilename)
 	if err != nil {
 		return nil, nil, err
@@ -40,7 +55,7 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 	}
 
 	indexTimes := []int64{}
-	queryTimes := []int64{}
+	queryTimes := [][]int64{}
 	nResults := 10
 	weights := []map[string]float32{
 		map[string]float32{
@@ -62,6 +77,11 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 		map[string]float32{
 			"fertility": 10.0,
 			"age":       1.0,
+		},
+		map[string]float32{
+			"fertility":         5.0,
+			"age":               1.0,
+			"weekly_work_hours": 1.0,
 		},
 		map[string]float32{
 			"sex":               20.0,
@@ -99,21 +119,25 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 			// indexing one at a time
 			// id := db.Index(record)
 			// recordIndexIds = append(recordIndexIds, id)
-
+			
 			recordGroup[curGroupSize] = record
 			curGroupSize++
 			if curGroupSize == bucketSize {
-
 				t0 := time.Now().UnixNano()
 				db.BulkIndex(recordGroup)
-				t1 := time.Now().UnixNano()
-				results := db.LinearQuery(nResults, weights[0])
-				fmt.Printf("Q results: %v\n", results)
-				t2 := time.Now().UnixNano()
-				indexTimes = append(indexTimes, t1-t0)
-				queryTimes = append(queryTimes, t2-t1)
-
+				indexTimes = append(indexTimes, time.Now().UnixNano() - t0)
+				queryRoundTimes := make([]int64, len(weights))
+				
+				for idx, query := range weights {
+					fmt.Printf("%08d Q start\n", time.Now().UnixNano() % 100000000)
+					t0 := time.Now().UnixNano()
+					results := db.LinearQuery(nResults, query)
+					queryTime := time.Now().UnixNano() - t0
+					fmt.Printf("%08d Q results: %v\n", time.Now().UnixNano() % 100000000, results)
+					queryRoundTimes[idx] = queryTime
+				}
 				curGroupSize = 0
+				queryTimes = append(queryTimes, queryRoundTimes)
 			}
 		}
 	}

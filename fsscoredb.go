@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"time"
 )
 
 func NewFsScoreDb(dataDir string) *FsScoreDb {
@@ -41,7 +41,7 @@ type PostingListHeader struct {
 
 type FileInfo struct {
 	header          *PostingListHeader
-	writer          io.Writer // nil if not open for writing
+	writer          *BitWriter
 	path            string
 	numVariableBits uint    // number of bits at the bottom of the float that are variable (smaller means it is a more specific bucket)
 	minVal          float32 // the minimum value allowed in the bucket (minVal and maxVal in the PostingListHeader are for the actual values stored in the list)
@@ -70,7 +70,7 @@ func MaxDocsForFile(fileInfo *FileInfo) int64 {
 		return math.MaxInt64
 	}
 	fixedFractionBits := 23 - fileInfo.numVariableBits // 23 bits is size of the fraction part
-	return 30*1568 + (1 << (fixedFractionBits))
+	return 20*1568 + (1 << (fixedFractionBits))
 }
 
 func Exists(path string) bool {
@@ -78,15 +78,17 @@ func Exists(path string) bool {
 	return !os.IsNotExist(err)
 }
 
-func EnsureDirectory(path string) error {
-	if Exists(path) {
+func EnsureDirectory(dir string) error {
+	if Exists(dir) {
 		return nil
 	} else {
-		return os.Mkdir(path, 0755)
+		parent := path.Dir(dir)
+		EnsureDirectory(parent)
+		return os.Mkdir(dir, 0755)
 	}
 }
 
-var INITIAL_VAR_BITS = uint(23 - 3)
+var INITIAL_VAR_BITS = uint(23 - 0)
 var HEADER_SIZE = int64(binary.Size(PostingListHeader{}))
 var numOpenFiles = 0
 
@@ -143,15 +145,17 @@ func FindPostingListFileForWrite(db *FsScoreDb, docId int64, key string, value f
 		if err != nil {
 			return nil, err
 		}
-		fileInfo.writer = fd
 		var header PostingListHeader
 		err = binary.Read(fd, binary.LittleEndian, &header)
 		if err != nil {
 			return nil, err
 		}
 		fileInfo.header = &header
-		fd.Seek(0, 2) // Goto EOF (whence=2 means "relative to end")
-
+		writer, err := NewBitWriter(fd)
+		if err != nil {
+			return nil, err
+		}
+		fileInfo.writer = writer
 	}
 	return fileInfo, nil
 }
@@ -202,18 +206,17 @@ func MakeFileInfo(fieldDir string, value float32, numVarBits uint, docId int64) 
 	if header.Version != 1 {
 		return nil, errors.New("Incorrect file version")
 	}
+	writer, err := NewBitWriter(fd)
+	if err != nil {
+		return nil, err
+	}
 	return &FileInfo{
 		header:          &header,
-		writer:          fd,
+		writer:          writer,
 		path:            filename,
 		numVariableBits: numVarBits,
 		minVal:          minVal,
 	}, nil
-}
-
-type PostingListWriter struct {
-	writer io.Writer
-	header *PostingListHeader
 }
 
 func WritePostingListEntry(fileInfo *FileInfo, docId int64, score float32) {
@@ -237,17 +240,18 @@ func WritePostingListEntry(fileInfo *FileInfo, docId int64, score float32) {
 	scoreMask := uint32(0xffffffff) >> (32 - fileInfo.numVariableBits)
 	scoreRemainder := uint64(scoreBits & scoreMask)
 
-	buf := make([]byte, 22)
-	sz := binary.PutUvarint(buf, uint64(docIncr))
-	sz += binary.PutUvarint(buf[sz:], scoreRemainder)
-	fileInfo.writer.Write(buf[:sz])
-
+	if scoreRemainder == 0 {
+		fileInfo.writer.WriteVarUInt32(uint32(docIncr << 1))
+	} else {
+		fileInfo.writer.WriteVarUInt32(uint32((docIncr << 1) | 1))
+		fileInfo.writer.WriteBits(scoreRemainder, fileInfo.numVariableBits)
+	}
 }
 
 func (op *PostingListDocItr) Close() {
 	if op.reader != nil {
 		numOpenFiles -= 1
-		err := op.file.Close()
+		err := op.reader.Close()
 		if err != nil {
 			panic(fmt.Sprintf("%v", err))
 		}
@@ -255,7 +259,6 @@ func (op *PostingListDocItr) Close() {
 }
 
 func (op *PostingListDocItr) Next(minId int64) bool {
-	//fmt.Printf("PostingListDocItr Next(%v) from initial doc id %v\n", minId, op.docId)
 	reader := op.reader
 	if reader == nil {
 		if op.docId == -1 && minId <= op.header.FirstDocId {
@@ -263,6 +266,7 @@ func (op *PostingListDocItr) Next(minId int64) bool {
 			op.score = op.header.FirstDocScore
 			return true
 		} else {
+			fmt.Printf("%08d Open       @doc %08d %s\n", time.Now().UnixNano() % 100000000, minId, op.path)
 			fd, err := os.OpenFile(op.path, os.O_RDONLY, 0)
 			numOpenFiles += 1
 			if err != nil {
@@ -272,28 +276,32 @@ func (op *PostingListDocItr) Next(minId int64) bool {
 			if err != nil {
 				panic(fmt.Sprintf("%v", err))
 			}
-			reader = bufio.NewReader(fd)
+			reader, err = NewBitReader(fd)
+			if err != nil {
+				panic(fmt.Sprintf("%v", err))
+			}
 			op.reader = reader
-			op.file = fd
 		}
 	}
 	docId := op.docId
 	for {
-		docIncr, err := binary.ReadUvarint(reader)
-		if err == io.EOF {
-			err = op.file.Close()
+		pair, err := reader.ReadVarUInt32()
+		if err != nil {
+			if err == io.EOF {
+				return false
+			}
+			panic(fmt.Sprintf("%v", err))
+		}
+		docIncr := pair >> 1
+		var valueBits uint64
+		if pair & 1 == 1 {
+			valueBits, err = reader.ReadBits(op.numVarBits)
 			if err != nil {
+				if err == io.EOF {
+					return false
+				}
 				panic(fmt.Sprintf("%v", err))
 			}
-			numOpenFiles -= 1
-			return false
-		}
-		if err != nil {
-			panic(fmt.Sprintf("%v", err))
-		}
-		valueBits, err := binary.ReadUvarint(reader)
-		if err != nil {
-			panic(fmt.Sprintf("%v", err))
 		}
 		docId += int64(docIncr)
 		if docId < minId {
@@ -331,15 +339,23 @@ func CloseWriters(db *FsScoreDb) error {
 			if writer == nil {
 				continue
 			}
-			_, err := writer.(*os.File).Seek(0, 0)
+			origPos, err := writer.File.Seek(0, 1) // save position to restore later
 			if err != nil {
 				return err
 			}
-			err = binary.Write(writer, binary.LittleEndian, fileInfo.header)
+			_, err = writer.File.Seek(0, 0)
 			if err != nil {
 				return err
 			}
-			err = writer.(*os.File).Close()
+			err = binary.Write(writer.File, binary.LittleEndian, fileInfo.header)
+			if err != nil {
+				return err
+			}
+			_, err = writer.File.Seek(origPos, 0)
+			if err != nil {
+				return err
+			}
+			err = writer.Close()
 			if err != nil {
 				return err
 			}
@@ -364,88 +380,35 @@ func (db *FsScoreDb) Index(record map[string]float32) (int64, error) {
 	return docid, nil
 }
 
-func (db *FsScoreDb) ScorerToDocItr(scorer []interface{}) (DocItr, error) {
-	args := scorer[1:]
-	switch scorer[0].(string) {
-	case "+":
-		fieldItrs := make([]SumComponent, len(args))
-		for idx, v := range args {
-			itr, err := db.ScorerToDocItr(v.([]interface{}))
-			fieldItrs[idx] = SumComponent{docItr: itr}
-			if err != nil {
-				return nil, err
-			}
-		}
-		return NewSumDocItr(fieldItrs), nil
-	case "scale":
-		if len(args) != 2 {
-			return nil, errors.New("Wrong number of arguments to scale function")
-		}
-		itr, err := db.ScorerToDocItr(args[1].([]interface{}))
-		if err != nil {
-			return nil, err
-		}
-		return &ScaleDocItr{args[0].(float32), itr}, nil
-	case "field":
-		if len(args) != 1 {
-			return nil, errors.New("Wrong number of arguments to field function")
-		}
-		key := args[0].(string)
-		files := db.fields[key]
-		itrs := make([]DocItr, len(files))
-		for fileIdx, fileInfo := range files {
-			itrs[fileIdx] = NewPostingListDocItr(math.Float32bits(fileInfo.minVal), fileInfo.path, fileInfo.header)
-		}
-		return NewFieldDocItr(key, itrs), nil
-	default:
-		return nil, errors.New(fmt.Sprintf("Scoring function '%s' is not recognized", scorer[0]))
+func (db *FsScoreDb) FieldDocItr(fieldName string) DocItr {
+	files := db.fields[fieldName]
+	itrs := make([]DocItr, len(files))
+	for fileIdx, fileInfo := range files {
+		itrs[fileIdx] = NewPostingListDocItr(math.Float32bits(fileInfo.minVal), fileInfo.path, fileInfo.header, fileInfo.numVariableBits)
 	}
-}
-
-func (db *FsScoreDb) Query(query Query) (QueryResult, error) {
-	docItr, err := db.ScorerToDocItr(query.Scorer)
-	if err != nil {
-		return QueryResult{}, err
-	}
-	return QueryResult{BridgeQuery(query, docItr)}, nil
-}
-
-func (db *FsScoreDb) LinearQuery(numResults int, weights map[string]float32) []int64 {
-	scorer := make([]interface{}, len(weights)+1)
-	scorer[0] = "+"
-	idx := 1
-	for key, weight := range weights {
-		scorer[idx] = []interface{}{"scale", weight, []interface{}{"field", key}}
-		idx += 1
-	}
-	result, _ := db.Query(Query{
-		Limit:  numResults,
-		Scorer: scorer,
-	})
-	return result.Ids
+	return NewFieldDocItr(fieldName, itrs)
 }
 
 type PostingListDocItr struct {
 	score       float32
 	docId       int64
 	min, max    float32
+	numVarBits  uint
 	rangePrefix uint32
 	path        string
-	reader      io.ByteReader
-	file        *os.File
+	reader      *BitReader
 	header      *PostingListHeader
 }
 
-func NewPostingListDocItr(rangePrefix uint32, path string, header *PostingListHeader) DocItr {
-	//fmt.Printf("New posting list itr at %d\n", path)
+func NewPostingListDocItr(rangePrefix uint32, path string, header *PostingListHeader, numVarBits uint) DocItr {
 	itr := &PostingListDocItr{
 		score:       0.0,
 		docId:       -1,
 		min:         header.MinVal,
 		max:         header.MaxVal,
+		numVarBits:  numVarBits,
 		rangePrefix: rangePrefix,
 		path:        path,
-		reader:      nil,
 		header:      header,
 	}
 	return itr

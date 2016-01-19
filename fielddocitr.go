@@ -2,7 +2,9 @@ package main
 
 import (
 	"container/heap"
+	"fmt"
 	"math"
+	"time"
 )
 
 type FieldDocItr struct {
@@ -78,6 +80,7 @@ func (op *FieldDocItr) SetBounds(min, max float32) bool {
 				lists[idx] = lists[len(lists)-1]
 				op.lists = lists[:len(lists)-1]
 				keepGoing = true
+				fmt.Printf("%08d Field elim @doc %08d, %05d remain (%s)\n", time.Now().UnixNano() % 100000000, op.docId, len(op.lists), op.field)
 				break
 			}
 		}
@@ -102,7 +105,7 @@ func (op *FieldDocItr) Next(minId int64) bool {
 		if !op.lists[0].Next(minId) {
 			heap.Remove(&op.lists, 0)
 			if len(op.lists) == 0 {
-				//fmt.Printf("FieldDocItr Next(%v) %v END\n", minId, op.field)
+				fmt.Printf("FieldDocItr Next(%v) %v END\n", minId, op.field)
 				return false
 			}
 		} else {

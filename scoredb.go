@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
+	"runtime"
 )
 
 func main() {
@@ -80,16 +82,25 @@ func main() {
 		serveCommand.Parse(os.Args[2:])
 		var db Db
 		if *serveDbType == "scoredb" {
-			db = NewFsScoreDb(*serveDataDir)
+			db = BaseDb{BaseStreamingDb{NewFsScoreDb(*serveDataDir)}}
 		}
 		addr := fmt.Sprintf("%s:%d", *serveIntf, *servePort)
 		fmt.Printf("Serving on %s\n", addr)
 		log.Fatal(ServeHttp(addr, db.(Db)))
 	case "benchmark":
+		runtime.GOMAXPROCS(runtime.NumCPU())
 		benchCommand.Parse(os.Args[2:])
 		esDb := &EsScoreDb{BaseURL: *benchEsUrl, Index: *benchEsIndex, NextId: 1}
-		fsDb := NewFsScoreDb(*benchFsDataDir)
-		batchSize := 10000 //9
+		//fsDb := BaseDb{BaseStreamingDb{NewFsScoreDb(path.Join(*benchFsDataDir, "shard1"))}}
+		fsDb := BaseDb{ShardedDb{
+			Shards: []StreamingDb{ // 4 shards to match elasticsearch defaults
+				BaseStreamingDb{NewFsScoreDb(path.Join(*benchFsDataDir, "shard1"))},
+				BaseStreamingDb{NewFsScoreDb(path.Join(*benchFsDataDir, "shard2"))},
+				BaseStreamingDb{NewFsScoreDb(path.Join(*benchFsDataDir, "shard3"))},
+				BaseStreamingDb{NewFsScoreDb(path.Join(*benchFsDataDir, "shard4"))},
+			},
+		}}
+		batchSize := 100000 //9
 		if !Exists(*benchCsvFilename) {
 			log.Fatal(fmt.Sprintf("Cannot find source csv data file at '%s'", *benchCsvFilename))
 		}
@@ -98,7 +109,7 @@ func main() {
 		esDb.DeleteIndex()
 		esDb.CreateIndex()
 		esIndexTimes, esQueryTimes, err := RunBenchmark(esDb, *benchCsvFilename, batchSize)
-		esDb.DeleteIndex()
+		//esDb.DeleteIndex()
 		if err != nil {
 			log.Fatal(fmt.Sprintf("Failed to run es benchmark: %v\n", err))
 		}
@@ -109,9 +120,13 @@ func main() {
 			log.Fatal(fmt.Sprintf("Failed to run native benchmark: %v\n", err))
 		}
 
-		fmt.Printf("records,es_index,es_query,native_index,native_query\n")
+		fmt.Printf("records,es_index,native_index,es_query_1,native_query_1,es_query_2,native_query_2\n")
 		for idx := 0; idx < len(esIndexTimes); idx++ {
-			fmt.Printf("%v,%v,%v,%v,%v\n", idx*batchSize, esIndexTimes[idx], esQueryTimes[idx], fsIndexTimes[idx], fsQueryTimes[idx])
+			fmt.Printf("%v,%v,%v", idx*batchSize, esIndexTimes[idx], fsIndexTimes[idx])
+			for idx2 := 0; idx2 < len(esQueryTimes[idx]); idx2++ {
+				fmt.Printf(",%v,%v", esQueryTimes[idx][idx2], fsQueryTimes[idx][idx2])
+			}		
+			fmt.Printf("\n")
 		}
 	default:
 		fmt.Printf("%q is not valid command.\n", os.Args[1])
