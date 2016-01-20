@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	//"path"
+	"path"
 	"runtime"
 )
 
@@ -52,13 +52,12 @@ func main() {
 		benchCommand.Parse(os.Args[2:])
 		esDb := &EsScoreDb{BaseURL: *benchEsUrl, Index: *benchEsIndex, NextId: 1}
 		//fsDb := BaseDb{BaseStreamingDb{NewFsScoreDb(path.Join(*benchFsDataDir, "shard1"))}}
-		benchFsDataDir = benchFsDataDir
 		fsDb := BaseDb{ShardedDb{
 			Shards: []StreamingDb{ // 4 shards to match elasticsearch defaults
-				BaseStreamingDb{NewMemoryScoreDb()},
-				BaseStreamingDb{NewMemoryScoreDb()},
-				BaseStreamingDb{NewMemoryScoreDb()},
-				BaseStreamingDb{NewMemoryScoreDb()},
+				BaseStreamingDb{NewFlatFsScoreDb(path.Join(*benchFsDataDir, "shard1"))},
+				BaseStreamingDb{NewFlatFsScoreDb(path.Join(*benchFsDataDir, "shard2"))},
+				BaseStreamingDb{NewFlatFsScoreDb(path.Join(*benchFsDataDir, "shard3"))},
+				BaseStreamingDb{NewFlatFsScoreDb(path.Join(*benchFsDataDir, "shard4"))},
 			},
 		}}
 		batchSize := 10000

@@ -20,7 +20,6 @@ type DocItr interface {
 
 	Close() // release resources held by this iterator (if any)
 
-	DocId() int64 // doc id of current result, or -1 if the iterator has not been initialized
+	Cur() (int64, float32) // doc id and score of current result, or (-1, 0.0) if the iterator has not been initialized
 
-	Score() float32 // score of current result
 }

@@ -33,8 +33,9 @@ func Min(v1, v2 float32) float32 {
 }
 
 func (op *DiffDocItr) Name() string { return "DiffDocItr" }
-func (op *DiffDocItr) DocId() int64 {
-	return op.itr.DocId()
+func (op *DiffDocItr) Cur() (int64, float32) {
+	docId, score := op.itr.Cur()
+	return docId, Abs(score - op.target)
 }
 func (op *DiffDocItr) GetBounds() (min, max float32) {
 	target := op.target
@@ -47,9 +48,6 @@ func (op *DiffDocItr) GetBounds() (min, max float32) {
 	} else {
 		return Min(d1, d2), maxDist
 	}
-}
-func (op *DiffDocItr) Score() float32 {
-	return Abs(op.itr.Score() - op.target)
 }
 func (op *DiffDocItr) Close() {
 	op.itr.Close()

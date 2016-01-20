@@ -94,9 +94,9 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 	heap.Init(results)
 	minScore, maxScore := float32(math.Inf(-1)), float32(math.Inf(1))
 	docId := int64(-1)
+	var score float32
 	for itr.Next(docId + 1) {
-		score := itr.Score()
-		docId = itr.DocId()
+		docId, score = itr.Cur()
 		if score > minScore {
 			heap.Push(results, DocScore{DocId: docId, Score: score})
 			if results.Len() > numResults {

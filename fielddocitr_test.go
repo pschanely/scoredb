@@ -17,19 +17,22 @@ func TestFieldOp(t *testing.T) {
 	if !fieldop.Next(0) {
 		t.Error()
 	}
-	if fieldop.DocId() != 1 {
+	docId, _ := fieldop.Cur()
+	if docId != 1 {
 		t.Error()
 	}
 	if !fieldop.Next(2) {
 		t.Error()
 	}
-	if fieldop.DocId() != 2 {
+	docId, _ = fieldop.Cur()
+	if docId != 2 {
 		t.Error()
 	}
 	if !fieldop.Next(3) {
 		t.Error()
 	}
-	if fieldop.DocId() != 5 {
+	docId, _ = fieldop.Cur()
+	if docId != 5 {
 		t.Error()
 	}
 	if !fieldop.SetBounds(0.75, 1.0) {
@@ -38,8 +41,9 @@ func TestFieldOp(t *testing.T) {
 	if !fieldop.Next(6) {
 		t.Error()
 	}
-	if id := fieldop.DocId(); id != 8 {
-		t.Error(id)
+	docId, _ = fieldop.Cur()
+	if docId != 8 {
+		t.Error()
 	}
 	if fieldop.Next(9) {
 		t.Error()

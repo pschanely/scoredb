@@ -44,13 +44,10 @@ func NewSumDocItr(itrs []DocItr) *SumDocItr {
 }
 
 func (op *SumDocItr) Name() string { return "SumDocItr" }
-func (op *SumDocItr) DocId() int64 {
-	return op.docId
+func (op *SumDocItr) Cur() (int64, float32) {
+	return op.docId, op.score
 }
 func (op *SumDocItr) GetBounds() (min, max float32) { return op.min, op.max }
-func (op *SumDocItr) Score() float32 {
-	return op.score
-}
 func (op *SumDocItr) Close() {
 	for _, part := range op.parts {
 		part.docItr.Close()
@@ -65,12 +62,13 @@ func (op *SumDocItr) Next(minId int64) bool {
 		score = float32(0.0)
 		for _, part := range op.parts {
 			var curDocId int64
+			var curScore float32
 			for {
-				curDocId = part.docItr.DocId()
+				curDocId, curScore = part.docItr.Cur()
 				if curDocId >= minId {
 					break
 				}
-				if !part.docItr.Next(minId) {
+				if ! part.docItr.Next(minId) {
 					return false
 				}
 			}
@@ -79,7 +77,7 @@ func (op *SumDocItr) Next(minId int64) bool {
 				keepGoing = true
 				break
 			}
-			score += part.docItr.Score()
+			score += curScore
 		}
 		if !keepGoing {
 			if score < min || score > max {

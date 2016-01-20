@@ -415,11 +415,8 @@ func NewPostingListDocItr(rangePrefix uint32, path string, header *PostingListHe
 }
 
 func (op *PostingListDocItr) Name() string { return "PostingListDocItr" }
-func (op *PostingListDocItr) DocId() int64 {
-	return op.docId
-}
-func (op *PostingListDocItr) Score() float32 {
-	return op.score
+func (op *PostingListDocItr) Cur() (int64, float32) {
+	return op.docId, op.score
 }
 func (op *PostingListDocItr) GetBounds() (min, max float32) {
 	return op.min, op.max

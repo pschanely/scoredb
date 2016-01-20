@@ -9,8 +9,9 @@ type ScaleDocItr struct {
 }
 
 func (op *ScaleDocItr) Name() string { return "ScaleDocItr" }
-func (op *ScaleDocItr) DocId() int64 {
-	return op.docItr.DocId()
+func (op *ScaleDocItr) Cur() (int64, float32) {
+	docId, score := op.docItr.Cur()
+	return docId, score * op.factor
 }
 func (op *ScaleDocItr) GetBounds() (min, max float32) {
 	min, max = op.docItr.GetBounds()
@@ -20,9 +21,6 @@ func (op *ScaleDocItr) GetBounds() (min, max float32) {
 	} else {
 		return max * op.factor, min * op.factor
 	}
-}
-func (op *ScaleDocItr) Score() float32 {
-	return op.docItr.Score() * op.factor
 }
 func (op *ScaleDocItr) Close() {
 	op.docItr.Close()

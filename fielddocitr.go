@@ -39,7 +39,9 @@ func NewFieldDocItr(field string, lists FieldDocItrs) *FieldDocItr {
 type FieldDocItrs []DocItr       // FieldDocItrs implements heap.Interface
 func (so FieldDocItrs) Len() int { return len(so) }
 func (so FieldDocItrs) Less(i, j int) bool {
-	return (so[i]).DocId() < (so[j]).DocId()
+	d1, _ := so[i].Cur()
+	d2, _ := so[j].Cur()
+	return d1 < d2
 }
 func (so *FieldDocItrs) Pop() interface{} {
 	old := *so
@@ -56,11 +58,8 @@ func (so FieldDocItrs) Swap(i, j int) {
 }
 
 func (op *FieldDocItr) Name() string { return "FieldDocItr" }
-func (op *FieldDocItr) DocId() int64 {
-	return op.docId
-}
-func (op *FieldDocItr) Score() float32 {
-	return op.score
+func (op *FieldDocItr) Cur() (int64, float32) {
+	return op.docId, op.score
 }
 func (op *FieldDocItr) GetBounds() (min, max float32) {
 	return op.min, op.max
@@ -101,8 +100,14 @@ func (op *FieldDocItr) Next(minId int64) bool {
 	if len(op.lists) == 0 {
 		return false
 	}
-	for op.lists[0].DocId() < minId {
-		if !op.lists[0].Next(minId) {
+	var docId int64
+	var score float32
+	for {
+		docId, score = op.lists[0].Cur()
+		if docId >= minId {
+			break
+		}
+		if ! op.lists[0].Next(minId) {
 			heap.Remove(&op.lists, 0)
 			if len(op.lists) == 0 {
 				fmt.Printf("FieldDocItr Next(%v) %v END\n", minId, op.field)
@@ -112,31 +117,8 @@ func (op *FieldDocItr) Next(minId int64) bool {
 			heap.Fix(&op.lists, 0)
 		}
 	}
-	op.docId = op.lists[0].DocId()
-	op.score = op.lists[0].Score()
+	op.docId = docId
+	op.score = score
 	//fmt.Printf("FieldDocItr Next(%v) %v %v %v\n", minId, op.field, op.docId, op.score)
 	return true
-}
-
-// Shifts operations forward until they all produce the same docId
-func SyncOperations(operations []DocItr, toDocId int64) (docId int64, score bool) {
-	syncAgain := true
-	for syncAgain {
-		syncAgain = false
-		for _, subOp := range operations {
-			docId := subOp.DocId()
-			for docId < toDocId {
-				if !subOp.Next(docId) {
-					return toDocId, false
-				}
-				docId = subOp.DocId()
-			}
-			if docId > toDocId {
-				toDocId = docId
-				syncAgain = true
-				break
-			}
-		}
-	}
-	return toDocId, true
 }

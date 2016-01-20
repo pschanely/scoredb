@@ -45,16 +45,11 @@ type MemoryScoreDocItr struct {
 }
 
 func (op *MemoryScoreDocItr) Name() string { return "MemoryScoreDocItr" }
-
-func (op *MemoryScoreDocItr) DocId() int64 {
+func (op *MemoryScoreDocItr) Cur() (int64, float32) {
 	idx := op.idx
-	if idx < 0 || idx >= len(op.scores) { return -1 }
-	return int64(idx + 1)
-}
-func (op *MemoryScoreDocItr) Score() float32 {
-	idx := op.idx
-	if idx < 0 || idx >= len(op.scores) { return 0.0 }
-	return op.scores[idx]
+	if idx < 0 || idx >= len(op.scores) { return -1, 0.0 }
+	return int64(idx + 1), op.scores[idx]
+	
 }
 func (op *MemoryScoreDocItr) GetBounds() (min, max float32) {
 	return float32(math.Inf(-1)), float32(math.Inf(1))

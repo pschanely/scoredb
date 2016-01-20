@@ -53,12 +53,12 @@ type ParallelDocItr struct {
 func RunItr(itr DocItr, myWorkerNum int, resultChannel chan CandidateResult, boundsChannel chan Bounds) {
 	bounds := Bounds{min:float32(math.Inf(-1)), max:float32(math.Inf(1))}
 	docId := int64(-1)
+	var score float32
 	for {
 		if ! itr.Next(docId + 1) {
 			break
 		}
-		score := itr.Score()
-		docId = itr.DocId()
+		docId, score = itr.Cur()
 		if score <= bounds.min || score >= bounds.max {
 			continue
 		}
@@ -141,7 +141,6 @@ func (op *ParallelDocItr) Next(minId int64) bool {
 
 func (op *ParallelDocItr) Close() {} // unsure...
 
-func (op *ParallelDocItr) DocId() int64 { return op.docId }
-
-func (op *ParallelDocItr) Score() float32 { return op.score }
-
+func (op *ParallelDocItr) Cur() (int64, float32) {
+	return op.docId, op.score
+}

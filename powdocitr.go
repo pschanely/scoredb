@@ -16,17 +16,15 @@ func Pow(val, exp float32) float32 {
 }
 
 func (op *PowDocItr) Name() string { return "PowDocItr" }
-func (op *PowDocItr) DocId() int64 {
-	return op.itr.DocId()
+func (op *PowDocItr) Cur() (int64, float32) {
+	docId, score := op.itr.Cur()
+	return docId, Pow(score, op.exp)
 }
 func (op *PowDocItr) Close() {
 	op.itr.Close()
 }
 func (op *PowDocItr) Next(minId int64) bool {
 	return op.itr.Next(minId)
-}
-func (op *PowDocItr) Score() float32 {
-	return Pow(op.itr.Score(), op.exp)
 }
 func (op *PowDocItr) GetBounds() (min, max float32) {
 	exp := op.exp

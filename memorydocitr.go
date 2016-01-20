@@ -25,11 +25,8 @@ func NewMemoryDocItr(scores []float32, docs []int64) *MemoryDocItr {
 		index:  -1,
 	}
 }
-func (op *MemoryDocItr) DocId() int64 {
-	return op.docId
-}
-func (op *MemoryDocItr) Score() float32 {
-	return op.score
+func (op *MemoryDocItr) Cur() (int64, float32) {
+	return op.docId, op.score
 }
 func (op *MemoryDocItr) GetBounds() (min, max float32) { return op.min, op.max }
 func (op *MemoryDocItr) SetBounds(min, max float32) bool {
