@@ -23,21 +23,23 @@ type SumDocItr struct {
 	parts    []SumComponent
 }
 
-func NewSumDocItr(parts SumComponents) *SumDocItr {
+func NewSumDocItr(itrs []DocItr) *SumDocItr {
 	min, max := float32(0.0), float32(0.0)
-	for idx, part := range parts {
-		curMin, curMax := part.docItr.GetBounds()
-		parts[idx].scoreRange = float32(math.Abs(float64(curMax - curMin)))
+	components := make(SumComponents, len(itrs))
+	for idx, part := range itrs {
+		curMin, curMax := part.GetBounds()
+		components[idx].docItr = part
+		components[idx].scoreRange = float32(math.Abs(float64(curMax - curMin)))
 		min += curMin
 		max += curMax
 	}
-	sort.Sort(parts)
+	sort.Sort(components)
 	return &SumDocItr{
 		score: 0.0,
 		docId: -1,
 		min:   min,
 		max:   max,
-		parts: parts,
+		parts: components,
 	}
 }
 

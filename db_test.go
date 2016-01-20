@@ -18,8 +18,8 @@ func DbBasicsTest(db Db, t *testing.T) {
 	if err != nil {
 		t.Error(fmt.Sprintf("%v", err))
 	}
-	// 52 43 41
 	fmt.Print(" =================== \n")
+	CallAndCheck(db, t, []int64{3, 1}, 2, []interface{}{"field", "height"})		
 	CallAndCheck(db, t, []int64{1, 2}, 2, []interface{}{"sum", 
 		[]interface{}{"field", "age"}, 
 		[]interface{}{"field", "height"}})

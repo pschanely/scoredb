@@ -85,6 +85,9 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 		return QueryResult{}, err
 	}
 	offset, limit := query.Offset, query.Limit
+	if limit == 0 { // we short circuit this case because the code below assumes at least one result
+		return QueryResult{Ids: []int64{}}, nil
+	}
 	numResults := offset + limit
 	resultData := make(BaseDbResultSet, 0, numResults+1)
 	results := &resultData
@@ -97,7 +100,8 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 		if score > minScore {
 			heap.Push(results, DocScore{DocId: docId, Score: score})
 			if results.Len() > numResults {
-				minScore = heap.Pop(results).(DocScore).Score
+				heap.Pop(results)
+				minScore = resultData[0].Score
 				itr.SetBounds(minScore, maxScore)
 			}
 		}
@@ -117,6 +121,17 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 	return QueryResult{Ids:resultIds}, nil
 }
 
+func ToFloat32(val interface{}) (float32, error) {
+	switch typed := val.(type) {
+	case float32: 
+		return typed, nil
+	case float64: 
+		return float32(typed), nil
+	default:
+		return 0.0, errors.New(fmt.Sprintf("Invalid value ('%s') given, must be floating point number", val))
+	}
+}
+
 
 // BaseStreamingDb : The usual way to bridge a StreamingDb to a DbBackend
 
@@ -132,13 +147,13 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 	args := scorer[1:]
 	switch scorer[0].(string) {
 	case "sum":
-		fieldItrs := make([]SumComponent, len(args))
+		fieldItrs := make([]DocItr, len(args))
 		for idx, v := range args {
 			itr, err := db.QueryItr(v.([]interface{}))
-			fieldItrs[idx] = SumComponent{docItr: itr}
 			if err != nil {
 				return nil, err
 			}
+			fieldItrs[idx] = itr
 		}
 		return NewSumDocItr(fieldItrs), nil
 	case "scale":
@@ -158,6 +173,65 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		default:
 			return nil, errors.New(fmt.Sprintf("Invalid weight ('%s') given to scale function, must be floating point number", weight))
 		}
+	case "diff":
+		if len(args) != 2 {
+			return nil, errors.New("Wrong number of arguments to diff function")
+		}
+		target, err := ToFloat32(args[0])
+		if err != nil {
+			return nil, err
+		}
+		itr, err := db.QueryItr(args[1].([]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		return &DiffDocItr{
+			target: target,
+			itr: itr,
+		}, nil
+	case "pow":
+		if len(args) != 2 {
+			return nil, errors.New("Wrong number of arguments to pow function")
+		}
+		exp, err := ToFloat32(args[1])
+		if err != nil {
+			return nil, err
+		}
+		itr, err := db.QueryItr(args[0].([]interface{}))
+		if err != nil {
+			return nil, err
+		}
+		return &PowDocItr{
+			itr: itr,
+			exp: exp,
+		}, nil
+	case "geo_distance":
+		if len(args) != 4 {
+			return nil, errors.New("Wrong number of arguments to geo_distance function")
+		}
+		lat, err := ToFloat32(args[0])
+		if err != nil {
+			return nil, err
+		}
+		lon, err := ToFloat32(args[1])
+		if err != nil {
+			return nil, err
+		}
+		latFieldName := args[2].(string)
+		lonFieldName := args[3].(string)
+		latItr := &DiffDocItr{target: lat, itr: db.Backend.FieldDocItr(latFieldName)}
+		lonItr := &DiffDocItr{target: lon, itr: db.Backend.FieldDocItr(lonFieldName)}
+		// bias longitude distances by approximate latitude (matters less at poles)
+		multiplier := float32(math.Cos(float64(lat) * math.Pi / 180.0))
+		biasedLonItr := &ScaleDocItr{multiplier, lonItr}
+		// square each component
+		latSquaredItr := &PowDocItr{exp: 2.0, itr: latItr}
+		lonSquaredItr := &PowDocItr{exp: 2.0, itr: biasedLonItr}
+		// sum and square root
+		distanceItr := &PowDocItr{exp: 0.5, itr: NewSumDocItr([]DocItr{latSquaredItr, lonSquaredItr})}
+		// multiply distance by radius of earth (in km)
+		earthRadius := float32(6371.0)
+		return &ScaleDocItr{earthRadius, distanceItr}, nil
 	case "field":
 		if len(args) != 1 {
 			return nil, errors.New("Wrong number of arguments to field function")
