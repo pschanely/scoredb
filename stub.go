@@ -1,4 +1,4 @@
-package main
+package scoredb
 
 type StubDb struct {
 	idx int64

@@ -1,4 +1,4 @@
-package main
+package scoredb
 
 import (
 	"container/heap"
@@ -156,6 +156,26 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 			fieldItrs[idx] = itr
 		}
 		return NewSumDocItr(fieldItrs), nil
+	case "product":
+		fieldItrs := make([]DocItr, len(args))
+		for idx, v := range args {
+			itr, err := db.QueryItr(v.([]interface{}))
+			if err != nil {
+				return nil, err
+			}
+			fieldItrs[idx] = itr
+		}
+		return NewProductDocItr(fieldItrs), nil
+	case "min":
+		fieldItrs := make([]DocItr, len(args))
+		for idx, v := range args {
+			itr, err := db.QueryItr(v.([]interface{}))
+			if err != nil {
+				return nil, err
+			}
+			fieldItrs[idx] = itr
+		}
+		return NewMinDocItr(fieldItrs), nil
 	case "scale":
 		if len(args) != 2 {
 			return nil, errors.New("Wrong number of arguments to scale function")

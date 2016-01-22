@@ -1,4 +1,4 @@
-package main
+package scoredb
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestBitReader(t *testing.T) {
-	filename := "bitreader.test"
+	filename := "datatest.bitreader"
 	file, err := os.Create(filename)
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -99,4 +99,51 @@ func TestBitReader(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 
+}
+
+
+func TestBitReaderVolume(t *testing.T) {
+	filename := "datatest.bitreader.volume"
+	file, err := os.Create(filename)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer os.Remove(filename)
+	
+	wtr, err := NewBitWriter(file)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	for i := 0; i <200; i++ {
+		wtr.WriteVarUInt32(uint32(i * i))
+		wtr.WriteBits(uint64(i), uint(i % 23)+10)
+	}
+	err = wtr.Close()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	
+	fd, err := os.OpenFile(filename, os.O_RDWR, 0666)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	rdr, err := NewBitReader(fd)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	for i := 0; i <200; i++ {
+		val, err := rdr.ReadVarUInt32()
+		if err != nil || int(val) != i * i {
+			t.Fatalf("val:%v, err:%v", val, err)
+		}
+		fixedval, err := rdr.ReadBits(uint(i % 23)+10)
+		if err != nil || int(fixedval) != i {
+			t.Fatalf("val:%v, err:%v", fixedval, err)
+		}
+	}
+	err = rdr.Close()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 }

@@ -1,10 +1,12 @@
-package main
+package scoredb
 
 import (
 	"bufio"
-	//"fmt"
+	"fmt"
 	"io"
 	"os"
+	"unsafe"
+	"github.com/edsrzf/mmap-go"
 )
 
 type BitWriter struct {
@@ -17,79 +19,71 @@ type BitWriter struct {
 func FileIsAtEnd(file *os.File) bool {
 	stat, _ := file.Stat()
 	pos, _ := file.Seek(0, 1)
-	//fmt.Printf("File is at end ? %v %v\n", pos, stat.Size())
 	return pos == stat.Size()
 }
 
+func WriteNativeLong(val uint64, writer io.Writer) error {
+	byteSlice := (*((*[8]byte)(unsafe.Pointer(&val))))[:]
+	_, err := writer.Write(byteSlice)
+	return err
+}
+
+func ReadNativeLong(buf []byte) uint64 {
+	return *((*uint64)(unsafe.Pointer(&buf[0])))
+}
+
+
 func NewBitWriter(file *os.File) (*BitWriter, error) {	
-	writer := BitWriter{File: file, BufferedWriter: bufio.NewWriter(file)}
+	writer := BitWriter{File: file}
 	if ! FileIsAtEnd(file) {
-		buf := make([]byte, 1)
-
-		file.Seek(-1, 2) // Goto EOF (whence=2 means "relative to end")
+		buf := make([]byte, 16)
+		
+		file.Seek(-16, 2) // Goto EOF (whence=2 means "relative to end")
 		nRead, err := file.Read(buf)
-		if nRead != 1 {
+		if nRead != 16 {
 			return nil, err
 		}
-		paddingBits := uint(buf[0])
+		writer.CurBitsUsed = uint(ReadNativeLong(buf[8:]))
+		writer.Cur =  ReadNativeLong(buf) >> (64 - writer.CurBitsUsed)
 
-		file.Seek(-2, 2) // Goto EOF (whence=2 means "relative to end")
-		nRead, err = file.Read(buf)
-		if nRead != 1 {
-			return nil, err
-		}
-		writer.Cur = uint64(buf[0]) >> paddingBits
-		writer.CurBitsUsed = 8 - paddingBits
-
-		file.Seek(-2, 2) // Goto EOF (whence=2 means "relative to end")
+		file.Seek(-16, 2) // Goto EOF (whence=2 means "relative to end")
 	}
-	//fmt.Printf("OPEN %064b %v\n", writer.Cur, writer.CurBitsUsed)
+	writer.BufferedWriter = bufio.NewWriter(file)
 	return &writer, nil
-	
 }
 
 func (writer *BitWriter) Close() error {
-	// fill out last byte and flush file
-	cur, bitsUsed := writer.Cur, writer.CurBitsUsed
-	paddingBits := 8 - bitsUsed
-	writer.BufferedWriter.WriteByte(byte(cur << paddingBits))
-	writer.BufferedWriter.WriteByte(byte(paddingBits))
-	//pos1, _ := writer.File.Seek(0, 1)
-	//buffrd1 := writer.BufferedWriter.Buffered()
+	bitsUsed := writer.CurBitsUsed
+	WriteNativeLong(writer.Cur << (64 - bitsUsed), writer.BufferedWriter)
+	WriteNativeLong(uint64(bitsUsed), writer.BufferedWriter)
 	err := writer.BufferedWriter.Flush()
 	if err != nil {
 		return err
 	}
-	//pos2, _ := writer.File.Seek(0, 1)
-	//buffrd2 := writer.BufferedWriter.Buffered()
-	//fmt.Printf("Close %064b %v curpos: %v %v-%v %v\n", cur << paddingBits, paddingBits, pos1, buffrd1, buffrd2, pos2)
 	return writer.File.Close()
 }
 
 func (writer *BitWriter) WriteBits(val uint64, numBits uint) error { // assumes val is all zeros above numBits
 	cur, bitsUsed := writer.Cur, writer.CurBitsUsed
-	cur = (cur << numBits) | val
-	bitsUsed += numBits
-	//fmt.Printf("Write raw bits buf %064b (%v)\n", cur, bitsUsed)
-	//pos1, _ := writer.File.Seek(0, 1)
-	//buffrd1 := writer.BufferedWriter.Buffered()
-	for bitsUsed >= 8 {
-		bitsUsed -= 8
-		err := writer.BufferedWriter.WriteByte(byte(cur >> bitsUsed))
+	overflow := int(bitsUsed + numBits) - 64
+	if overflow >= 0 { // split the write
+		initialBits := numBits - uint(overflow)
+		cur = (cur << initialBits) | (val >> uint(overflow))
+		err := WriteNativeLong(cur, writer.BufferedWriter)
 		if err != nil {
 			return err
 		}
+		writer.Cur = val
+		writer.CurBitsUsed = uint(overflow)
+	} else {
+		writer.Cur = (cur << numBits) | val
+		writer.CurBitsUsed += numBits
 	}
-	//pos2, _ := writer.File.Seek(0, 1)
-	//buffrd2 := writer.BufferedWriter.Buffered()
-	//fmt.Printf("Write raw bits val: %064b (%v) curpos: %v %v-%v %v\n", val, numBits, pos1, buffrd1, buffrd2, pos2)
-	writer.Cur, writer.CurBitsUsed = cur, bitsUsed
 	return nil
 }
 
 func (writer *BitWriter) WriteVarUInt32(val uint32) error {
-	cur, bitsUsed := writer.Cur, writer.CurBitsUsed
-	var sizeFactor uint
+	var sizeFactor uint64
 	if        val & 0xfffffff0 == 0 {
 		sizeFactor = 0
 	} else if val & 0xffffff00 == 0 {
@@ -99,67 +93,73 @@ func (writer *BitWriter) WriteVarUInt32(val uint32) error {
 	} else {
 		sizeFactor = 3
 	}
-	//fmt.Printf(" WRITTEN START val: %v cur:%064b  (%v)\n", val, cur, bitsUsed)
-	cur = (cur << 2) | uint64(sizeFactor)
-	bitsUsed += 2
+	writer.WriteBits(sizeFactor, 2)
 	numBits := uint(4 << sizeFactor)
-	cur = (cur << numBits) | uint64(val)
-	bitsUsed += numBits
-	//fmt.Printf(" WRITTEN END   val: %v cur:%064b  (%v) (bitsz: %v)\n", val, cur, bitsUsed, numBits)
-
-	//pos1, _ := writer.File.Seek(0, 1)
-	//buffrd1 := writer.BufferedWriter.Buffered()
-	for bitsUsed >= 8 {
-		bitsUsed -= 8
-		err := writer.BufferedWriter.WriteByte(byte(cur >> bitsUsed))
-		if err != nil {
-			return err
-		}
-	}
-	//pos2, _ := writer.File.Seek(0, 1)
-	//buffrd2 := writer.BufferedWriter.Buffered()
-	//fmt.Printf("Write var bits val: %064b (%v) curpos: %v %v-%v %v\n", val, numBits, pos1, buffrd1, buffrd2, pos2)
-	writer.Cur, writer.CurBitsUsed = cur, bitsUsed
+	writer.WriteBits(uint64(val), numBits)
 	return nil
 }
 
 
 
 type BitReader struct {
-	BufferedReader *bufio.Reader
+	OrigMmap *mmap.MMap
+	Mmap []uint64
+	MmapPtr uint
+	MmapPtrBitsLeft uint
 	File *os.File
 	Cur uint64
 	CurBitsLeft uint
 }
 
 func NewBitReader(file *os.File) (*BitReader, error) {	
-	return &BitReader{BufferedReader:bufio.NewReader(file), File:file}, nil
+	mapSlice, err := mmap.Map(file, mmap.RDONLY, 0)
+	if err != nil {
+		panic(err)
+	}
+	curPos, err := file.Seek(0, 1)
+	if curPos % 8 != 0 {
+		panic(fmt.Sprintf("BitReader started at byte %v; must be 8 byte aligned", curPos))
+	}
+	return &BitReader{
+		File: file,
+		OrigMmap: &mapSlice,
+		Mmap: (*((*[10000000]uint64)(unsafe.Pointer(&mapSlice[0]))))[:],
+		MmapPtr: uint(curPos / 8),
+		MmapPtrBitsLeft: 64,
+	}, nil
 }
 
 func (reader *BitReader) Close() error {
+	reader.Mmap = []uint64{}
+	err := reader.OrigMmap.Unmap()
+	if err != nil {
+		return err
+	}
 	return reader.File.Close()
 }
 
 func (reader *BitReader) Refill(cur uint64, bitsLeft uint, numNeeded uint) (uint64, uint, error) {
-	for bitsLeft <= 56 {
-		rdr := reader.BufferedReader
-		byt, err := rdr.ReadByte()
-		if err != nil {
-			if err == io.EOF && bitsLeft >= numNeeded {
-				return cur, bitsLeft, nil
-			} else {
-				return cur, bitsLeft, err
-			}
+	wanted := 64 - bitsLeft
+	if wanted >= reader.MmapPtrBitsLeft { 
+		bits := reader.Mmap[reader.MmapPtr] << (64 - reader.MmapPtrBitsLeft)
+		cur = cur | (bits >> bitsLeft)
+		bitsLeft += reader.MmapPtrBitsLeft
+		wanted -= reader.MmapPtrBitsLeft
+		reader.MmapPtrBitsLeft = 64
+		reader.MmapPtr += 1
+		if wanted == 0 {
+			return cur, bitsLeft, nil
 		}
-		bitsLeft += 8
-		cur = cur | (uint64(byt) << (64 - bitsLeft))
 	}
+	bits := reader.Mmap[reader.MmapPtr] << (64 - reader.MmapPtrBitsLeft)
+	cur = cur | (bits >> bitsLeft)
+	reader.MmapPtrBitsLeft -= wanted
+	bitsLeft = 64
 	return cur, bitsLeft, nil
 }
 		
 func (reader *BitReader) ReadBits(numBits uint) (uint64, error) {
 	cur, bitsLeft := reader.Cur, reader.CurBitsLeft
-	//fmt.Printf(" READ FIXED START cur:%064b (%v) [%v bit to read]\n", cur, bitsLeft, numBits)
 	var err error
 	if bitsLeft < numBits {
 		cur, bitsLeft, err = reader.Refill(cur, bitsLeft, numBits)
@@ -175,28 +175,13 @@ func (reader *BitReader) ReadBits(numBits uint) (uint64, error) {
 }
 
 func (reader *BitReader) ReadVarUInt32() (uint32, error) {
-	cur, bitsLeft := reader.Cur, reader.CurBitsLeft
-	var err error
-	if bitsLeft < 2 {
-		cur, bitsLeft, err = reader.Refill(cur, bitsLeft, 2)
-		if err != nil {
-			return 0, err
-		}
+	sizeFactor, err := reader.ReadBits(2)
+	if err != nil {
+		return 0, err
 	}
-	//fmt.Printf(" READ START cur:%064b (%v)\n", cur, bitsLeft)
-	numNeeded := uint(4 << (cur >> 62))
-	cur = cur << 2
-	bitsLeft -= 2
-	if bitsLeft < numNeeded {
-		cur, bitsLeft, err = reader.Refill(cur, bitsLeft, numNeeded)
-		if err != nil {
-			return 0, err
-		}
+	numNeeded := uint(4 << sizeFactor)
+	val, err := reader.ReadBits(numNeeded)
+	if err != nil {
+		return 0, err
 	}
-	val := cur >> (64 - numNeeded)
-	cur = cur << numNeeded
-	bitsLeft -= numNeeded
-	//fmt.Printf(" READ END   cur:%064b (%v) produced: %v\n", cur, bitsLeft, val)
-	reader.Cur, reader.CurBitsLeft = cur, bitsLeft
-	return uint32(val), nil
-}
+        return uint32(val), nil                                                                                                                          }

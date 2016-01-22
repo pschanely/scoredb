@@ -1,4 +1,4 @@
-package main
+package scoredb
 
 import (
 	"bufio"
@@ -30,10 +30,10 @@ func (db BaseDb) LinearQuery(numResults int, weights map[string]float32) []int64
 	return result.Ids
 }
 
-func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize int) ([]int64, [][]int64, error) {
+func RunBenchmark(db LinearCombinationBackend, csvFilename string, maxRecords int64) ([]int64, []int64, [][]int64, error) {
 	fp, err := os.Open(csvFilename)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer fp.Close()
 
@@ -42,9 +42,9 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 
 	header, err := csvReader.Read()
 	if err == io.EOF {
-		return nil, nil, fmt.Errorf("Missing csv header")
+		return nil, nil, nil, fmt.Errorf("Missing csv header")
 	} else if err != nil {
-		return nil, nil, fmt.Errorf("Error reading csv header")
+		return nil, nil, nil, fmt.Errorf("Error reading csv header")
 	}
 
 	// TODO ensure we have at least one value?
@@ -54,6 +54,7 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 		colMap[colIdx] = colName
 	}
 
+	totalRecs := []int64{} 
 	indexTimes := []int64{}
 	queryTimes := [][]int64{}
 	nResults := 10
@@ -84,14 +85,16 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 			"weekly_work_hours": 1.0,
 		},
 		map[string]float32{
-			"sex":               20.0,
-			"fertility":         5.0,
+			"sex":               100.0,
+			"fertility":         9.0,
 			"age":               1.0,
 			"weekly_work_hours": 1.0,
 		},
 	}
 
+	bucketSize := 1000
 	recordGroup := make([]map[string]float32, bucketSize)
+	totalCount := int64(0)
 	curGroupSize := 0
 
 	for {
@@ -99,7 +102,7 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return nil, nil, fmt.Errorf("Error reading csv contents")
+			return nil, nil, nil, fmt.Errorf("Error reading csv contents")
 		}
 		record := make(map[string]float32, len(row))
 		for fieldIdx, fieldValue := range row {
@@ -122,9 +125,11 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 			
 			recordGroup[curGroupSize] = record
 			curGroupSize++
+			totalCount++
 			if curGroupSize == bucketSize {
 				t0 := time.Now().UnixNano()
 				db.BulkIndex(recordGroup)
+				totalRecs = append(totalRecs, totalCount)
 				indexTimes = append(indexTimes, time.Now().UnixNano() - t0)
 				queryRoundTimes := make([]int64, len(weights))
 				
@@ -138,6 +143,14 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 				}
 				curGroupSize = 0
 				queryTimes = append(queryTimes, queryRoundTimes)
+				bucketSize += bucketSize * 2
+				if totalCount >= maxRecords {
+					break
+				}
+				if bucketSize > 100000 {
+					bucketSize = 100000
+				}
+				recordGroup = make([]map[string]float32, bucketSize)
 			}
 		}
 	}
@@ -147,5 +160,5 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, bucketSize in
 		db.BulkIndex(finalRecords)
 	}
 
-	return indexTimes, queryTimes, nil
+	return totalRecs, indexTimes, queryTimes, nil
 }

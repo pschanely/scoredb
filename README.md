@@ -17,6 +17,14 @@ Note that several factors can influence the effectiveness of this approach: comb
 
 ![Graph of bucket elimination during execution](bucket_execution.png)
 
+# Run It
+
+Scoredb has a straightforward programatic interface, but you can also run a standalone HTTP server like so:
+
+> $ scoredb serve -datadir delmedir -port 11625
+> $ curl -XPOST http://localhost:11625/index -d '{"age":38, "weight":190}'
+> $ curl -G 'http://localhost:11625/query' --data-urlencode 'score=["sum", ["field", "age"], ["field", "weight"]]'
+
 # Limitations
 
 ScoreDB is minimalistic and highly specialized; it is intended to just act as one piece of a larger system:
@@ -24,14 +32,10 @@ ScoreDB is minimalistic and highly specialized; it is intended to just act as on
 * ScoreDB can only respond to queries with lists of identifiers; ScoreDB's indexes do not provide efficient access to the original fields.
 * ScoreDB requires the client to remember ScoreDB's identifier for each object; user-specified identifiers are not supported.
 * ScoreDB has no built-in clustering, redundancy, or backup functions.
-* ScoreDB has no delete operation.  To remove an object, you must build a new index.
+* ScoreDB has no delete or update operation.  To remove or change an object, you must build a new index.
 * Adding objects to ScoreDB is slow if you add them one at a time.  Bulk insertion should be used whenever possible.
 * ScoreDB requires many open files; sometimes thousands of them.  You will need to increase default filehandle limits on your system (see "ulimit" on linux).
-
-# However:
-
-* ScoreDB can be run as a RESTful server, or embedded into a larger Go system.
-* ScoreDB has an append-only design, and it is safe to move live databases with a simple cp or rsync, or back them up with generic incremental backup systems.
+* ScoreDB expects you to provide every field for every object; objects that are missing a field cannot be returned from queries that use the missing fields.
 
 # Thanks
 

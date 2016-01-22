@@ -1,4 +1,4 @@
-package main
+package scoredb
 
 import (
 	"math"
@@ -36,12 +36,31 @@ func (db *MemoryScoreDb) BulkIndex(records []map[string]float32) ([]int64, error
 
 func (db *MemoryScoreDb) FieldDocItr(fieldName string) DocItr {
 	scores := db.Fields[fieldName]
-	return &MemoryScoreDocItr{scores:scores, idx:-1}
+	return NewMemoryScoreDocItr(scores)
+}
+
+func NewMemoryScoreDocItr(scores []float32) *MemoryScoreDocItr {
+	min, max := float32(math.Inf(1)), float32(math.Inf(-1))
+	for _, score := range(scores) {
+		if score < min {
+			min = score
+		}
+		if score > max {
+			max = score
+		}
+	}
+	return &MemoryScoreDocItr{
+		scores: scores, 
+		idx: -1,
+		min: min,
+		max: max,
+	}
 }
 
 type MemoryScoreDocItr struct {
 	scores []float32
 	idx int
+	min, max float32
 }
 
 func (op *MemoryScoreDocItr) Name() string { return "MemoryScoreDocItr" }
@@ -52,9 +71,10 @@ func (op *MemoryScoreDocItr) Cur() (int64, float32) {
 	
 }
 func (op *MemoryScoreDocItr) GetBounds() (min, max float32) {
-	return float32(math.Inf(-1)), float32(math.Inf(1))
+	return op.min, op.max
 }
 func (op *MemoryScoreDocItr) SetBounds(min, max float32) bool {
+	op.min, op.max = min, max
 	return true
 }
 

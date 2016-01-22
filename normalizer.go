@@ -1,4 +1,4 @@
-package main
+package scoredb
 
 //Normalize min/max to 0,1
 

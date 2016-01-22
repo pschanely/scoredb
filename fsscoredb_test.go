@@ -1,25 +1,8 @@
-package main
+package scoredb
 
 import (
-	"fmt"
 	"testing"
 )
-
-func CallAndCheck(db Db, t *testing.T, r1 []int64, limit int, scorer []interface{}) {
-	r2, err := db.Query(Query{Limit:limit, Scorer:scorer})
-	fmt.Printf("Is? %v %v (err:%v)\n", r1, r2, err)
-	if (err != nil) {
-		t.FailNow()
-	}
-	if len(r1) != len(r2.Ids) {
-		t.FailNow()
-	}
-	for idx, v1 := range r1 {
-		if v1 != r2.Ids[idx] {
-			t.FailNow()
-		}
-	}
-}
 
 func TestFsScore(t *testing.T) {
 	db := BaseDb{BaseStreamingDb{NewFsScoreDb("datatest1")}}

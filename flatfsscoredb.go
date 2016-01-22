@@ -1,4 +1,4 @@
-package main
+package scoredb
 
 import (
 	"bufio"
@@ -99,7 +99,7 @@ func (db *FlatFsScoreDb) FieldDocItr(fieldName string) DocItr {
 		mmap: (*((*[10000000]float32)(unsafe.Pointer(&mapSlice[0]))))[:],
 		numDocs: int(stat.Size() / 4),
 		docId: -1,
-		min: float32(math.Inf(-1)), 
+		min: 0,//float32(math.Inf(-1)), 
 		max: float32(math.Inf(1)),
 	}
 }

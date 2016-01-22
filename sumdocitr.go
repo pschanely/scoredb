@@ -1,4 +1,4 @@
-package main
+package scoredb
 
 import (
 	"math"
@@ -101,7 +101,7 @@ func (op *SumDocItr) SetBounds(min, max float32) bool {
 		newMin, newMax := min, max
 		// subtract out the ranges of all the other components (the remaining range will be mine)
 		for otherfactor, otherComponent := range op.parts {
-			//Then subtract the other weights times their appropriate maxes or mins
+			//Then subtract the other maxes or mins
 			if curfield != otherfactor {
 				otherMin, otherMax := otherComponent.docItr.GetBounds()
 				newMin -= otherMax

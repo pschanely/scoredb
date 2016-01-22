@@ -1,13 +1,14 @@
-package main
+package scoredb
 
 import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"path"
+	"strconv"
 	"time"
 )
 
@@ -16,9 +17,54 @@ func NewFsScoreDb(dataDir string) *FsScoreDb {
 	if err != nil {
 		panic(err)
 	}
+	fields := make(map[string]OrderedFileInfos)
+
+	// Load pre-existing file headers
+	fieldNames, err := ioutil.ReadDir(dataDir)
+	if err != nil {
+		panic(err)
+	}
+	for _, fieldName := range fieldNames {
+		fieldPath := path.Join(dataDir, fieldName.Name())
+		fmt.Printf(" L! %v\n", fieldPath)
+		fields[fieldPath] = make(OrderedFileInfos, 0)
+		dataFiles, err := ioutil.ReadDir(fieldPath)
+		if err != nil {
+			panic(err)
+		}
+		for _, dataFile := range dataFiles {
+			numVarBits := 32 - len(dataFile.Name())
+			prefixVal, err := strconv.ParseInt(dataFile.Name(), 2, 32)
+			if err != nil {
+				continue
+			}
+			
+			dataFilePath := path.Join(fieldPath, dataFile.Name())
+			fmt.Printf(" L2 %v\n", dataFilePath)
+			fd, err := os.OpenFile(dataFilePath, os.O_RDONLY, 0)
+			if err != nil {
+				panic(err)
+			}
+			var header PostingListHeader
+			err = binary.Read(fd, binary.LittleEndian, &header)
+			if err != nil {
+				panic(err)
+			}
+			fileInfo := &FileInfo{
+				header:          &header,
+				path:            dataFilePath,
+				numVariableBits: uint(numVarBits),
+				minVal:          math.Float32frombits(uint32(prefixVal << uint(numVarBits))),
+			}
+			fmt.Printf(" f i %+v\n", fileInfo)
+			fields[fieldName.Name()] = append(fields[fieldName.Name()], fileInfo)
+		}
+		
+	}
+
 	return &FsScoreDb{
 		dataDir: dataDir,
-		fields:  make(map[string]OrderedFileInfos),
+		fields: fields,
 		nextId:  1,
 	}
 }
@@ -30,13 +76,16 @@ type FsScoreDb struct {
 }
 
 type PostingListHeader struct {
-	Version       uint8
-	MinVal        float32
-	MaxVal        float32
-	FirstDocScore float32
 	FirstDocId    int64
 	LastDocId     int64
 	NumDocs       int64
+	MinVal        float32
+	MaxVal        float32
+	FirstDocScore float32
+	Version       uint8
+	// padding to make struct 8-byte aligned when using encoding/binary operations:
+	_             uint8
+	_             uint16
 }
 
 type FileInfo struct {
@@ -222,6 +271,7 @@ func MakeFileInfo(fieldDir string, value float32, numVarBits uint, docId int64) 
 func WritePostingListEntry(fileInfo *FileInfo, docId int64, score float32) {
 	header := fileInfo.header
 	docIncr := docId - header.LastDocId
+
 	if docIncr == 0 {
 		// special case for first entry (it exists in the header, so do not write here)
 		return
@@ -246,6 +296,7 @@ func WritePostingListEntry(fileInfo *FileInfo, docId int64, score float32) {
 		fileInfo.writer.WriteVarUInt32(uint32((docIncr << 1) | 1))
 		fileInfo.writer.WriteBits(scoreRemainder, fileInfo.numVariableBits)
 	}
+
 }
 
 func (op *PostingListDocItr) Close() {
@@ -285,11 +336,11 @@ func (op *PostingListDocItr) Next(minId int64) bool {
 	}
 	docId := op.docId
 	for {
+		if docId == op.maxDocId {
+			return false
+		}
 		pair, err := reader.ReadVarUInt32()
 		if err != nil {
-			if err == io.EOF {
-				return false
-			}
 			panic(fmt.Sprintf("%v", err))
 		}
 		docIncr := pair >> 1
@@ -297,11 +348,11 @@ func (op *PostingListDocItr) Next(minId int64) bool {
 		if pair & 1 == 1 {
 			valueBits, err = reader.ReadBits(op.numVarBits)
 			if err != nil {
-				if err == io.EOF {
-					return false
-				}
 				panic(fmt.Sprintf("%v", err))
 			}
+		}
+		if docIncr == 0 {
+			panic(fmt.Sprintf("Inconsistent file data @ %v %v", reader.MmapPtr * 8, op.path))
 		}
 		docId += int64(docIncr)
 		if docId < minId {
@@ -381,7 +432,11 @@ func (db *FsScoreDb) Index(record map[string]float32) (int64, error) {
 }
 
 func (db *FsScoreDb) FieldDocItr(fieldName string) DocItr {
-	files := db.fields[fieldName]
+	files, ok := db.fields[fieldName]
+	fmt.Printf(" field %v in %+v\n", fieldName, db.fields)
+	if ! ok {
+		return NewMemoryScoreDocItr([]float32{})
+	}
 	itrs := make([]DocItr, len(files))
 	for fileIdx, fileInfo := range files {
 		itrs[fileIdx] = NewPostingListDocItr(math.Float32bits(fileInfo.minVal), fileInfo.path, fileInfo.header, fileInfo.numVariableBits)
@@ -392,6 +447,7 @@ func (db *FsScoreDb) FieldDocItr(fieldName string) DocItr {
 type PostingListDocItr struct {
 	score       float32
 	docId       int64
+	maxDocId    int64
 	min, max    float32
 	numVarBits  uint
 	rangePrefix uint32
@@ -404,6 +460,7 @@ func NewPostingListDocItr(rangePrefix uint32, path string, header *PostingListHe
 	itr := &PostingListDocItr{
 		score:       0.0,
 		docId:       -1,
+		maxDocId:    header.LastDocId,
 		min:         header.MinVal,
 		max:         header.MaxVal,
 		numVarBits:  numVarBits,
