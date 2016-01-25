@@ -9,7 +9,7 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"time"
+	//"time"
 )
 
 func NewFsScoreDb(dataDir string) *FsScoreDb {
@@ -20,13 +20,13 @@ func NewFsScoreDb(dataDir string) *FsScoreDb {
 	fields := make(map[string]OrderedFileInfos)
 
 	// Load pre-existing file headers
+	highestId := int64(0)
 	fieldNames, err := ioutil.ReadDir(dataDir)
 	if err != nil {
 		panic(err)
 	}
 	for _, fieldName := range fieldNames {
 		fieldPath := path.Join(dataDir, fieldName.Name())
-		fmt.Printf(" L! %v\n", fieldPath)
 		fields[fieldPath] = make(OrderedFileInfos, 0)
 		dataFiles, err := ioutil.ReadDir(fieldPath)
 		if err != nil {
@@ -38,9 +38,7 @@ func NewFsScoreDb(dataDir string) *FsScoreDb {
 			if err != nil {
 				continue
 			}
-			
 			dataFilePath := path.Join(fieldPath, dataFile.Name())
-			fmt.Printf(" L2 %v\n", dataFilePath)
 			fd, err := os.OpenFile(dataFilePath, os.O_RDONLY, 0)
 			if err != nil {
 				panic(err)
@@ -50,22 +48,25 @@ func NewFsScoreDb(dataDir string) *FsScoreDb {
 			if err != nil {
 				panic(err)
 			}
+			if header.LastDocId > highestId {
+				highestId = header.LastDocId
+			}
 			fileInfo := &FileInfo{
 				header:          &header,
 				path:            dataFilePath,
 				numVariableBits: uint(numVarBits),
 				minVal:          math.Float32frombits(uint32(prefixVal << uint(numVarBits))),
 			}
-			fmt.Printf(" f i %+v\n", fileInfo)
 			fields[fieldName.Name()] = append(fields[fieldName.Name()], fileInfo)
 		}
 		
 	}
 
+	//fmt.Printf("INIT fs score db %v (highest id %d)\n", dataDir, highestId)
 	return &FsScoreDb{
 		dataDir: dataDir,
 		fields: fields,
-		nextId:  1,
+		nextId:  highestId + 1,
 	}
 }
 
@@ -317,7 +318,7 @@ func (op *PostingListDocItr) Next(minId int64) bool {
 			op.score = op.header.FirstDocScore
 			return true
 		} else {
-			fmt.Printf("%08d Open       @doc %08d %s\n", time.Now().UnixNano() % 100000000, minId, op.path)
+			//fmt.Printf("%08d Open       @doc %08d %s\n", time.Now().UnixNano() % 100000000, minId, op.path)
 			fd, err := os.OpenFile(op.path, os.O_RDONLY, 0)
 			numOpenFiles += 1
 			if err != nil {
@@ -433,7 +434,6 @@ func (db *FsScoreDb) Index(record map[string]float32) (int64, error) {
 
 func (db *FsScoreDb) FieldDocItr(fieldName string) DocItr {
 	files, ok := db.fields[fieldName]
-	fmt.Printf(" field %v in %+v\n", fieldName, db.fields)
 	if ! ok {
 		return NewMemoryScoreDocItr([]float32{})
 	}

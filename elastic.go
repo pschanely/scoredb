@@ -13,19 +13,15 @@ import (
 
 type EsScoreDb struct {
 	BaseURL, Index string
-	NextId         int64
 }
 
-func (db *EsScoreDb) BulkIndex(records []map[string]float32) ([]int64, error) {
+func (db *EsScoreDb) BulkIndex(records []Record) error {
 	var jsonbuf bytes.Buffer
-	ids := make([]int64, len(records))
-	for idx, rec := range records {
-		jsonbuf.WriteString(fmt.Sprintf("{\"index\":{\"_id\":\"%d\"}}\n", db.NextId))
-		ids[idx] = db.NextId
-		db.NextId += 1
-		buf, err := json.Marshal(rec)
+	for _, rec := range records {
+		jsonbuf.WriteString(fmt.Sprintf("{\"index\":{\"_id\":\"%s\"}}\n", rec.Id))
+		buf, err := json.Marshal(rec.Values)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		jsonbuf.Write(buf)
 		jsonbuf.WriteString("\n")
@@ -51,7 +47,7 @@ func (db *EsScoreDb) BulkIndex(records []map[string]float32) ([]int64, error) {
 
 	db.RefreshIndex()
 
-	return ids, nil
+	return nil
 }
 
 type EsQueryResponse struct {
@@ -62,7 +58,7 @@ type EsQueryResponse struct {
 	} `json:"hits"`
 }
 
-func (db *EsScoreDb) LinearQuery(numResults int, weights map[string]float32) []int64 {
+func (db *EsScoreDb) LinearQuery(numResults int, weights map[string]float32) []string {
 	var scorefactors bytes.Buffer
 	first := true
 	for key, val := range weights {
@@ -96,13 +92,9 @@ func (db *EsScoreDb) LinearQuery(numResults int, weights map[string]float32) []i
 		panic(err)
 	}
 	hits := queryResp.Hits.Hits
-	resultIds := make([]int64, len(hits))
+	resultIds := make([]string, len(hits))
 	for idx, rec := range hits {
-		intVal, err := strconv.ParseInt(rec.Id, 10, 64)
-		if err != nil {
-			panic(err)
-		}
-		resultIds[idx] = intVal
+		resultIds[idx] = rec.Id
 	}
 	return resultIds
 }

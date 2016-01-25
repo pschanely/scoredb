@@ -1,8 +1,40 @@
 package scoredb
 
 import (
+	"fmt"
 	"math"
 )
+
+
+func NewMemoryIdDb() MemoryIdDb {
+	return MemoryIdDb{make(map[int64]string)}
+}
+
+type MemoryIdDb struct {
+	bindings map[int64]string
+}
+
+
+func (db MemoryIdDb)Put(scoreIds []int64, clientIds []string) error {
+	for idx, scoreId := range scoreIds {
+		db.bindings[scoreId] = clientIds[idx]
+	}
+	return nil
+}
+
+func (db MemoryIdDb)Get(scoreIds []int64) ([]string, error) {
+	result := make([]string, len(scoreIds))
+	for idx, scoreId := range scoreIds {
+		clientId, ok := db.bindings[scoreId]
+		if ! ok {
+			return nil, fmt.Errorf("Unable to find client id for internal id %d", scoreId)
+
+		}
+		result[idx] = clientId
+	}
+	return result, nil
+}
+
 
 type MemoryScoreDb struct {
 	Fields map[string][]float32
@@ -12,7 +44,7 @@ type MemoryScoreDb struct {
 func NewMemoryScoreDb() *MemoryScoreDb {
 	return &MemoryScoreDb{
 		Fields: make(map[string][]float32),
-		nextId: 0,
+		nextId: 1,
 	}
 }
 

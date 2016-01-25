@@ -11,11 +11,11 @@ import (
 )
 
 type LinearCombinationBackend interface {
-	BulkIndex(records []map[string]float32) ([]int64, error)
-	LinearQuery(numResults int, coefs map[string]float32) []int64
+	BulkIndex(records []Record) error
+	LinearQuery(numResults int, coefs map[string]float32) []string
 }
 
-func (db BaseDb) LinearQuery(numResults int, weights map[string]float32) []int64 {
+func (db BaseDb) LinearQuery(numResults int, weights map[string]float32) []string {
 	scorer := make([]interface{}, len(weights)+1)
 	scorer[0] = "sum"
 	idx := 1
@@ -64,10 +64,6 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, maxRecords in
 			"wages": 1.0,
 		},
 		map[string]float32{
-			"age":   1000.0,
-			"wages": 1.0,
-		},
-		map[string]float32{
 			"age":   10000.0,
 			"wages": 1.0,
 		},
@@ -93,7 +89,7 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, maxRecords in
 	}
 
 	bucketSize := 1000
-	recordGroup := make([]map[string]float32, bucketSize)
+	recordGroup := make([]Record, bucketSize)
 	totalCount := int64(0)
 	curGroupSize := 0
 
@@ -123,9 +119,9 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, maxRecords in
 			// id := db.Index(record)
 			// recordIndexIds = append(recordIndexIds, id)
 			
-			recordGroup[curGroupSize] = record
-			curGroupSize++
 			totalCount++
+			recordGroup[curGroupSize] = Record{Id: fmt.Sprintf("%d",totalCount), Values: record}
+			curGroupSize++
 			if curGroupSize == bucketSize {
 				t0 := time.Now().UnixNano()
 				db.BulkIndex(recordGroup)
@@ -134,7 +130,7 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, maxRecords in
 				queryRoundTimes := make([]int64, len(weights))
 				
 				for idx, query := range weights {
-					fmt.Printf("%08d Q start\n", time.Now().UnixNano() % 100000000)
+					//fmt.Printf("%08d Q start\n", time.Now().UnixNano() % 100000000)
 					t0 := time.Now().UnixNano()
 					results := db.LinearQuery(nResults, query)
 					queryTime := time.Now().UnixNano() - t0
@@ -150,12 +146,12 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, maxRecords in
 				if bucketSize > 100000 {
 					bucketSize = 100000
 				}
-				recordGroup = make([]map[string]float32, bucketSize)
+				recordGroup = make([]Record, bucketSize)
 			}
 		}
 	}
 	if curGroupSize > 0 {
-		finalRecords := make([]map[string]float32, curGroupSize)
+		finalRecords := make([]Record, curGroupSize)
 		copy(finalRecords, recordGroup)
 		db.BulkIndex(finalRecords)
 	}

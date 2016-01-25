@@ -5,7 +5,7 @@ import (
 )
 
 func TestMemoryScoreDb(t *testing.T) {
-	db := BaseDb{BaseStreamingDb{NewMemoryScoreDb()}}
+	db := BaseDb{StreamingDb: BaseStreamingDb{NewMemoryScoreDb()}, IdDb: NewMemoryIdDb()}
 	DbBasicsTest(db, t)
 }
 

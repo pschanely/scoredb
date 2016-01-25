@@ -1,6 +1,7 @@
 package scoredb
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 )
@@ -10,10 +11,32 @@ type ShardedDb struct {
 	Shards  []StreamingDb
 }
 
+var reservedShardBits = uint(14)
+
+func NewShardedDb(shards []StreamingDb) (*ShardedDb, error) {
+	maxShards := (1 << reservedShardBits) - 1
+	if len(shards) >= 1 << reservedShardBits {
+		return nil, fmt.Errorf("Too many shards (%d); maximum number of shards is %d", len(shards), maxShards)
+	}
+	return &ShardedDb{Shards: shards}, nil
+}
+
+func ShardIdToExt(idInShard int64, shardNum int) int64 {
+	return (int64(shardNum) << uint(64 - reservedShardBits)) | idInShard
+}
+
 func (db ShardedDb) BulkIndex(records []map[string]float32) ([]int64, error) {
-	//numShards := len(db.Shards)
-	shardNum := rand.Intn(len(db.Shards))
-	return db.Shards[shardNum].BulkIndex(records)
+	numShards := len(db.Shards)
+	// TODO do something more complex some day?  Parallelize it like the query side?
+	shardNum := rand.Intn(numShards)
+	results, err := db.Shards[shardNum].BulkIndex(records)
+	if (err != nil) {
+		return nil, err
+	}
+	for idx, v := range results {
+		results[idx] = ShardIdToExt(v, shardNum)
+	}
+	return results, nil
 }
 
 func (db ShardedDb) QueryItr(scorer []interface{}) (DocItr, error) {
@@ -127,13 +150,14 @@ func (op *ParallelDocItr) Next(minId int64) bool {
 				return false
 			}
 		} else {
+			workerNum := result.WorkerNum
 			if result.Score > op.Bounds.min && result.Score < op.Bounds.max {
-				op.docId = result.DocId
+				op.docId = ShardIdToExt(result.DocId, workerNum)
 				op.score = result.Score
-				op.Comms[result.WorkerNum] <- op.Bounds
+				op.Comms[workerNum] <- op.Bounds
 				return true
 			} else {
-				op.Comms[result.WorkerNum] <- op.Bounds
+				op.Comms[workerNum] <- op.Bounds
 			}
 		}
 	}

@@ -22,7 +22,7 @@ func NewFlatFsScoreDb(dataDir string) *FlatFsScoreDb {
 	}
 	return &FlatFsScoreDb{
 		dataDir: dataDir,
-		nextId: 0, // TODO load this from fs somehow.  also, detect new fields and do something about that
+		nextId: 1, // TODO load this from fs somehow.  also, detect new fields and do something about that
 	}
 }
 

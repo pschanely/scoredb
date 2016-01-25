@@ -20,16 +20,21 @@ type DocScore struct {
 	Score float32
 }
 
+type Record struct {
+	Id string
+	Values map[string]float32
+}
+
 type QueryResult struct {
-	Ids []int64
+	Ids []string
 }
 
 
 // Three layers of database interfaces, each one wrapping the next:
 
 type Db interface { // Outermost interface; clients use this
-	BulkIndex(records []map[string]float32) ([]int64, error)
-	Index(record map[string]float32) (int64, error)
+	BulkIndex(records []Record) error
+	Index(id string, values map[string]float32) error
 	Query(query Query) (QueryResult, error)
 }
 
@@ -43,24 +48,33 @@ type DbBackend interface { // the minimal interface to implement storage (filesy
 	FieldDocItr(field string) DocItr
 }
 
+type IdBackend interface { // stores a mapping from scoredb's identifiers to the clients'
+	Put(scoreIds []int64, clientIds []string) error
+	Get(scoreIds []int64) ([]string, error)
+}
 
-// BaseDb : The usual way to bridge a Db to a StreamingDb
 
 type BaseDb struct {
 	StreamingDb StreamingDb
+	IdDb IdBackend
 }
 
-func (db BaseDb) BulkIndex(records []map[string]float32) ([]int64, error) {
-	return db.StreamingDb.BulkIndex(records)
-}
-
-func (db BaseDb) Index(record map[string]float32) (int64, error) {
-	ids, err := db.StreamingDb.BulkIndex([]map[string]float32{record})
-	if err == nil {
-		return ids[0], nil
-	} else {
-		return -1, err
+func (db BaseDb) BulkIndex(records []Record) error {
+	clientIds := make([]string, len(records))
+	values := make([]map[string]float32, len(records))
+	for idx, rec := range records {
+		values[idx] = rec.Values
+		clientIds[idx] = rec.Id
 	}
+	scoreIds, err := db.StreamingDb.BulkIndex(values)
+	if err != nil {
+		return err
+	}
+	return db.IdDb.Put(scoreIds, clientIds)
+}
+
+func (db BaseDb) Index(id string, values map[string]float32) error {
+	return db.BulkIndex([]Record{Record{Id: id, Values: values}})
 }
 
 type BaseDbResultSet []DocScore
@@ -86,7 +100,7 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 	}
 	offset, limit := query.Offset, query.Limit
 	if limit == 0 { // we short circuit this case because the code below assumes at least one result
-		return QueryResult{Ids: []int64{}}, nil
+		return QueryResult{Ids: []string{}}, nil
 	}
 	numResults := offset + limit
 	resultData := make(BaseDbResultSet, 0, numResults+1)
@@ -118,7 +132,12 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 	for idx, _ := range resultIds {
 		resultIds[numResults-(idx+1)] = heap.Pop(results).(DocScore).DocId
 	}
-	return QueryResult{Ids:resultIds}, nil
+
+	clientIds, err := db.IdDb.Get(resultIds)
+	if err != nil {
+		return QueryResult{}, err
+	}
+	return QueryResult{Ids: clientIds}, nil
 }
 
 func ToFloat32(val interface{}) (float32, error) {
