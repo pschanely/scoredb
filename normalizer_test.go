@@ -1,7 +1,6 @@
 package scoredb
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -25,7 +24,6 @@ func TestNormalizer(t *testing.T) {
 			output: map[string]float32{"X": -1.2247448, "Y": -1.2247448, "Z": -1.2247448},
 		},
 	}
-	fmt.Println("Testing normalizer\n")
 	for _, c := range cases {
 		var normalizer Normalizer
 		normalizer.Init()
@@ -38,7 +36,7 @@ func TestNormalizer(t *testing.T) {
 		for fieldName, val := range c.output {
 			if result := normalizer.NormalizeValue(fieldName, c.input[0][fieldName]); result == val {
 				if rescaled := normalizer.ScaleValue(fieldName, result); rescaled == c.input[0][fieldName] {
-					fmt.Println("Test success!\n")
+					//fmt.Println("Test success!\n")
 				} else {
 					t.Errorf("Rescaler gave unexpected value: %v\n", result)
 				}

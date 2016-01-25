@@ -6,12 +6,13 @@ import (
 )
 
 func TestBitReader(t *testing.T) {
-	filename := "datatest.bitreader"
+	filename := RmAllTestData()("bitreader")
+	defer RmAllTestData()
+
 	file, err := os.Create(filename)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	defer os.Remove(filename)
 	
 	wtr, err := NewBitWriter(file)
 	if err != nil {
@@ -103,12 +104,13 @@ func TestBitReader(t *testing.T) {
 
 
 func TestBitReaderVolume(t *testing.T) {
-	filename := "datatest.bitreader.volume"
+	filename := RmAllTestData()("bitreader.volume")
+	defer RmAllTestData()
+
 	file, err := os.Create(filename)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	defer os.Remove(filename)
 	
 	wtr, err := NewBitWriter(file)
 	if err != nil {

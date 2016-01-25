@@ -5,7 +5,9 @@ import (
 )
 
 func TestFlatDb(t *testing.T) {
-	db := BaseDb{StreamingDb: BaseStreamingDb{NewFlatFsScoreDb("datatest_flat_1")}, IdDb: NewMemoryIdDb()}
+	testdir := RmAllTestData()("datatest_flat")
+	defer RmAllTestData()
+	db := BaseDb{StreamingDb: BaseStreamingDb{NewFlatFsScoreDb(testdir)}, IdDb: NewMemoryIdDb()}
 	DbBasicsTest(db, t)
 }
 

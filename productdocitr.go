@@ -1,8 +1,6 @@
 package scoredb
 
 import (
-	"fmt"
-	"math"
 	"sort"
 )
 
@@ -98,11 +96,8 @@ func (op *ProductDocItr) Next(minId int64) bool {
 	return true
 }
 
-
-var infinity = float32(math.Inf(1))
-
 func (op *ProductDocItr) SetBounds(min, max float32) bool {
-	fmt.Printf("ProductDocItr SetBounds %v %v\n", min, max)
+	//fmt.Printf("ProductDocItr SetBounds %v %v\n", min, max)
 	op.min = min
 	op.max = max
 
@@ -118,7 +113,7 @@ func (op *ProductDocItr) SetBounds(min, max float32) bool {
 					newMin /= otherMax
 				}
 				if otherMin == 0.0 {
-					newMax = infinity
+					newMax = PositiveInfinity
 				} else {
 					newMax /= otherMin
 				}
@@ -132,7 +127,7 @@ func (op *ProductDocItr) SetBounds(min, max float32) bool {
 			newMax = curMax
 		}
 		if newMin != curMin || newMax != curMax {
-			fmt.Printf("ProductDocItr SetBounds for component %v %v\n", newMin, newMax)
+			//fmt.Printf("ProductDocItr SetBounds for component %v %v\n", newMin, newMax)
 			component.SetBounds(newMin, newMax)
 		}
 	}

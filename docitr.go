@@ -1,6 +1,11 @@
 package scoredb
 
-import ()
+import (
+	"math"
+)
+
+var PositiveInfinity = float32(math.Inf(1))
+var NegativeInfinity = float32(math.Inf(-1))
 
 type DocItr interface {
 	// An iterator over (document id, score) values.

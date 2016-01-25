@@ -2,12 +2,14 @@ package scoredb
 
 import (
 	"fmt"
+	"os"
+	"path"
+	"strings"
 	"testing"
 )
 
 func CallAndCheck(db Db, t *testing.T, r1 []string, limit int, scorer []interface{}) {
 	r2, err := db.Query(Query{Limit:limit, Scorer:scorer})
-	fmt.Printf("Is? %v %v (err:%v)\n", r1, r2, err)
 	if (err != nil) {
 		t.Fatal()
 	}
@@ -22,7 +24,6 @@ func CallAndCheck(db Db, t *testing.T, r1 []string, limit int, scorer []interfac
 }
 
 func DbBasicsTest(db Db, t *testing.T) {
-	fmt.Print(" =================== \n")
 	err := db.Index("r1", map[string]float32{"age": 32, "height": 2.0})
 	if err != nil {
 		t.Error(fmt.Sprintf("%v", err))
@@ -35,7 +36,6 @@ func DbBasicsTest(db Db, t *testing.T) {
 	if err != nil {
 		t.Error(fmt.Sprintf("%v", err))
 	}
-	fmt.Print(" =================== \n")
 	CallAndCheck(db, t, []string{"r3", "r1"}, 2, []interface{}{"field", "height"})		
 	CallAndCheck(db, t, []string{"r1", "r2"}, 2, []interface{}{"sum", 
 		[]interface{}{"field", "age"}, 
@@ -63,3 +63,21 @@ func DbBasicsTest(db Db, t *testing.T) {
 		[]interface{}{"field", "height"}})
 }
 
+func RmAllTestData() (func(name string) string) {
+	tmpDir := os.TempDir()
+	dirfd, err := os.Open(tmpDir)
+	if err == nil {
+		names, err := dirfd.Readdirnames(0)
+		if err == nil {
+			for _, name := range names {
+				if strings.HasPrefix(name, "scoredbtest.") {
+					os.RemoveAll(path.Join(tmpDir, name))
+				}
+			}
+		}
+	}
+	return func(name string) string {
+		fullname := path.Join(tmpDir, "scoredbtest." + name)
+		return fullname
+	}
+}

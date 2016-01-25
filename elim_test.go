@@ -1,7 +1,6 @@
 package scoredb
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -103,14 +102,14 @@ func TestElimination(t *testing.T) {
 	}
 	for _, c := range cases {
 		got := Elim(c.input.eqmap, c.input.bval, c.input.boundvals)
-		fmt.Println("Results")
-		fmt.Println(got)
-		fmt.Println("Expect:")
-		fmt.Println(c.elimvals)
+		//fmt.Println("Results")
+		//fmt.Println(got)
+		//fmt.Println("Expect:")
+		//fmt.Println(c.elimvals)
 		if compareMaps(got, c.elimvals) {
 			t.Errorf("Not equal!")
 		} else {
-			fmt.Println("Test success!")
+			//fmt.Println("Test success!")
 		}
 	}
 }

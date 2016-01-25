@@ -63,7 +63,7 @@ func (op *MinDocItr) Next(minId int64) bool {
 	for keepGoing {
 		//fmt.Printf("MinDocItr Next itr (%v) [%v:%v] = %v score:%v\n", minId, op.min, op.max, op.docId, score)
 		keepGoing = false
-		score = infinity
+		score = PositiveInfinity
 		for _, part := range op.parts {
 			var curDocId int64
 			var curScore float32

@@ -61,7 +61,7 @@ The IDs in each file are strictly increasing; this means that we can traverse se
 
 As we traverse the buckets, we score the objects produced and put them into a candidate result set.  The result set is capped at the limit specified by the user.  As poorly scoring results get kicked out of the candidate result set, we can infer a lower bound on the final score.  With some math, we can propagate that lower bound backwards through the scoring function to infer bounds on the individual fields.  These bounds may then be used to stop traversing very poorly scoring buckets that could not produce a good enough final score.  In this manner, as the candidate result set gets better and better, the system can eliminate more and more buckets to arrive at a result very quickly.
 
-The following graph shows bucket elimination over the course of a query combining two fields, "age" and "wages":
+The following graph shows bucket elimination over the course of an example query combining two fields, "age" and "wages":
 
 <img src="bucket_execution.png" width="500">
 
