@@ -17,17 +17,19 @@ In practice, I've found elasticsearch's custom scoring functions to be quite fas
 (please let me know about other systems I might benchmark against!)
 
 This is a graph of how 5 different queries perform with varying database sizes (yellow is elasticsearch and blue is scoredb):
-![Graph of how query performance scales with database size](scale_performance.png)
+<img src="scale_performance.png" width="300">
 The elasticsearch query times (yellow) look like they're rising exponentially, but it's actually linear, on account of the logarithmic scale.
 
 The dataset is anonymized US census data, each object representing an individual.  These are the 5 scoring functions used for benchmarking, in order from fastest to slowest (for scoredb):
 
-> 10 * number_of_children + age
-> 10000 * age + yearly_wages
-> 100 * age + yearly_wages
-> 40 * gender + weekly_work_hours
-> 100.0 * gender + 9 * num_children + age + weekly_work_hours
-> 5 * num_children + age + weekly_work_hours
+```
+10 * number_of_children + age
+10000 * age + yearly_wages
+100 * age + yearly_wages
+40 * gender + weekly_work_hours
+100.0 * gender + 9 * num_children + age + weekly_work_hours
+5 * num_children + age + weekly_work_hours
+```
 
 It's clear from the graph that scoredb's performance can vary significantly based on the scoring function.
 Read more about that below.
@@ -36,25 +38,29 @@ Read more about that below.
 
 Though Scoredb has a straightforward programatic interface, you can run a simple, standalone HTTP server like so:
 
-> $ scoredb serve -datadir delmedir -port 11625
-> ... and in another shell:
-> $ # insert some people with ages and weights
-> $ curl -XPUT http://localhost:11625/jim -d '{"age":21, "weight":170}'
-> $ curl -XPUT http://localhost:11625/bob -d '{"age":34, "weight":150}'
-> $ # get people by age, weight, or the sum of their age and weight:
-> $ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "age"]'
-> $ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "weight"]'
-> $ curl -G 'http://localhost:11625' --data-urlencode 'score=["sum", ["field", "age"], ["field", "weight"]]'
+```
+$ scoredb serve -datadir delmedir -port 11625
+... and in another shell:
+$ # insert some people with ages and weights
+$ curl -XPUT http://localhost:11625/jim -d '{"age":21, "weight":170}'
+$ curl -XPUT http://localhost:11625/bob -d '{"age":34, "weight":150}'
+$ # get people by age, weight, or the sum of their age and weight:
+$ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "age"]'
+$ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "weight"]'
+$ curl -G 'http://localhost:11625' --data-urlencode 'score=["sum", ["field", "age"], ["field", "weight"]]'
+```
 
 # How?
 
 ScoreDB uses a format on disk that is very similar to that used by text search systems like solr and elasticsearch.
 We divide each field into ranges of values (buckets) and, for each bucket, maintain a file containing the ids of objects that have their value inside that range.
+
 The ids in each file are strictly increasing; this means that we can traverse several buckets efficiently by using a heap of buckets to find the next smallest id among many buckets.
+
 As we traverse the buckets, we score the objects produced and put them into a candidate result set.  The result set is capped at the limit specified by the user.  As poorly scoring results get kicked out of the candidate result set, we can infer a lower bound on the final score.  With some math, we can propagate that lower bound backwards through the scoring function to infer bounds on the individual fields.  These bounds may then be used to stop traversing very poorly scoring buckets that could not produce a good enough final score.  In this manner, as the candidate result set gets better and better, the system can eliminate more and more buckets to arrive at a result very quickly.
 
 The following graph shows bucket elimination over the course of a query combining two fields, "age" and "wages":
-![Graph of bucket elimination during execution](bucket_execution.png)
+<img src="bucket_execution.png" widht="300">
 
 Because of the way ScoreDB works, some scoring functions will perform much better than others.  Some guidance:
 
