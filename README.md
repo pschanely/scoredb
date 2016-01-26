@@ -52,10 +52,14 @@ $ ${GOPATH}/bin/scoredb serve -datadir my_data_directory -port 11625
 # insert some people with ages and weights
 $ curl -XPUT http://localhost:11625/jim -d '{"age":21, "weight":170}'
 $ curl -XPUT http://localhost:11625/bob -d '{"age":34, "weight":150}'
+
 # get people by age, weight, or the sum of their age and weight:
 $ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "age"]'
+{"Ids":["bob","jim"]}
 $ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "weight"]'
+{"Ids":["jim","bob"]}
 $ curl -G 'http://localhost:11625' --data-urlencode 'score=["sum", ["field", "age"], ["field", "weight"]]'
+{"Ids":["jim","bob"]}
 ```
 
 # Supported Query Functions
@@ -113,7 +117,7 @@ We divide each field into ranges of values (buckets) and, for each bucket, maint
 
 The IDs in each file are strictly increasing; this means that we can traverse several buckets efficiently by using a heap of buckets to find the next smallest id among many buckets.
 
-As we traverse the buckets, we score the objects produced and put them into a candidate result set.  The result set is capped at the limit specified by the user.  As poorly scoring results get kicked out of the candidate result set, we can infer a lower bound on the final score.  With some math, we can propagate that lower bound backwards through the scoring function to infer bounds on the individual fields.  These bounds may then be used to stop traversing very poorly scoring buckets that could not produce a good enough final score.  In this manner, as the candidate result set gets better and better, the system can eliminate more and more buckets to arrive at a result very quickly.
+As we traverse the buckets, we score the objects produced and put them into a candidate result set.  The result set is capped at the `&limit=` parameter specified by the user.  As poorly scoring results get kicked out of the candidate result set, we can infer a lower bound on the final score.  With some math, we can propagate that lower bound backwards through the scoring function to infer bounds on the individual fields.  These bounds may then be used to stop traversing very poorly scoring buckets that could not produce a good enough final score.  In this manner, as the candidate result set gets better and better, the system can eliminate more and more buckets to arrive at a result very quickly.
 
 The following graph shows bucket elimination over the course of an example query combining two fields, "age" and "wages":
 
@@ -152,7 +156,7 @@ Thanks are due to the [Samsung Accelerator](http://samsungaccelerator.com) which
 
 * https://github.com/davidgljay
 * https://github.com/ploxiln
-* https://github.com/pschanely (Phil Schanely)
+* https://github.com/pschanely
 * https://github.com/rmarianski
 * https://github.com/sleepylemur
 
