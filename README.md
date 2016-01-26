@@ -1,6 +1,6 @@
 # scoredb
 
-A simple database optimized for returning results by custom scoring functions.
+A simple database index optimized for returning results by custom scoring functions.
 
 
 # Why?
@@ -26,11 +26,11 @@ $ ${GOPATH}/bin/scoredb serve -datadir my_data_directory -port 11625
 $ curl -XPUT http://localhost:11625/jim -d '{"age":21, "weight":170}'
 $ curl -XPUT http://localhost:11625/bob -d '{"age":34, "weight":150}'
 
-# get people by age, weight, or the sum of their age and weight:
+# get people by age
 $ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "age"]'
 {"Ids":["bob","jim"]}
-$ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "weight"]'
-{"Ids":["jim","bob"]}
+
+# get people by the sum of their age and weight:
 $ curl -G 'http://localhost:11625' --data-urlencode 'score=["sum", ["field", "age"], ["field", "weight"]]'
 {"Ids":["jim","bob"]}
 ```
@@ -47,7 +47,7 @@ As we traverse the buckets, we score the objects produced and put them into a ca
 
 The following graph shows bucket elimination over the course of an example query combining two fields, "age" and "wages":
 
-<img src="bucket_execution.png" width="400">
+<img src="bucket_execution.png" width="380">
 
 
 # Performance
@@ -87,7 +87,7 @@ Some guidance on scoring:
 # Limitations
 
 Scoredb is minimalistic and highly specialized; it is intended to just act as one piece of a larger system:
-* Scoredb has no delete or update operation.  To remove or change an object, you must build a new index.
+* Scoredb **has no delete or update operation**.  To remove or change an object, you must build a new index.
 * It stores objects as a flat set of key-value pairs with string keys and numeric values only. (internally, all values are 32 bit floating point values)
 * Scoredb can only respond to queries with lists of identifiers; scoredb's indexes do not provide efficient access to the original field data.
 * Scoredb has no built-in clustering, redundancy, or backup functions.
