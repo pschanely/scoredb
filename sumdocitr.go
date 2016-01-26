@@ -68,7 +68,7 @@ func (op *SumDocItr) Next(minId int64) bool {
 				if curDocId >= minId {
 					break
 				}
-				if ! part.docItr.Next(minId) {
+				if !part.docItr.Next(minId) {
 					return false
 				}
 			}

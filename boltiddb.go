@@ -1,8 +1,8 @@
 package scoredb
 
 import (
-	"fmt"
 	"encoding/binary"
+	"fmt"
 	"github.com/boltdb/bolt"
 )
 
@@ -41,7 +41,6 @@ func (db *BoltIdDb) Put(scoreIds []int64, clientIds []string) error {
 		}
 		return nil
 	})
-	return nil
 }
 
 func (db *BoltIdDb) Get(scoreIds []int64) ([]string, error) {

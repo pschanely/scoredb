@@ -107,7 +107,7 @@ func (op *FieldDocItr) Next(minId int64) bool {
 		if docId >= minId {
 			break
 		}
-		if ! op.lists[0].Next(minId) {
+		if !op.lists[0].Next(minId) {
 			heap.Remove(&op.lists, 0)
 			if len(op.lists) == 0 {
 				//fmt.Printf("FieldDocItr Next(%v) %v END\n", minId, op.field)

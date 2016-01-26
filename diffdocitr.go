@@ -5,7 +5,7 @@ import ()
 // (Absolute) difference between a value and a constant
 type DiffDocItr struct {
 	target float32
-	itr DocItr
+	itr    DocItr
 }
 
 func Abs(val float32) float32 {
@@ -59,5 +59,5 @@ func (op *DiffDocItr) Next(minId int64) bool {
 func (op *DiffDocItr) SetBounds(min, max float32) bool {
 	// min is not useful to us right now
 	target := op.target
-	return op.itr.SetBounds(target - max, target + max)
+	return op.itr.SetBounds(target-max, target+max)
 }

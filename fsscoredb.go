@@ -59,13 +59,13 @@ func NewFsScoreDb(dataDir string) *FsScoreDb {
 			}
 			fields[fieldName.Name()] = append(fields[fieldName.Name()], fileInfo)
 		}
-		
+
 	}
 
 	//fmt.Printf("INIT fs score db %v (highest id %d)\n", dataDir, highestId)
 	return &FsScoreDb{
 		dataDir: dataDir,
-		fields: fields,
+		fields:  fields,
 		nextId:  highestId + 1,
 	}
 }
@@ -85,8 +85,8 @@ type PostingListHeader struct {
 	FirstDocScore float32
 	Version       uint8
 	// padding to make struct 8-byte aligned when using encoding/binary operations:
-	_             uint8
-	_             uint16
+	_ uint8
+	_ uint16
 }
 
 type FileInfo struct {
@@ -346,14 +346,14 @@ func (op *PostingListDocItr) Next(minId int64) bool {
 		}
 		docIncr := pair >> 1
 		var valueBits uint64
-		if pair & 1 == 1 {
+		if pair&1 == 1 {
 			valueBits, err = reader.ReadBits(op.numVarBits)
 			if err != nil {
 				panic(fmt.Sprintf("%v", err))
 			}
 		}
 		if docIncr == 0 {
-			panic(fmt.Sprintf("Inconsistent file data @ %v %v", reader.MmapPtr * 8, op.path))
+			panic(fmt.Sprintf("Inconsistent file data @ %v %v", reader.MmapPtr*8, op.path))
 		}
 		docId += int64(docIncr)
 		if docId < minId {
@@ -434,7 +434,7 @@ func (db *FsScoreDb) Index(record map[string]float32) (int64, error) {
 
 func (db *FsScoreDb) FieldDocItr(fieldName string) DocItr {
 	files, ok := db.fields[fieldName]
-	if ! ok {
+	if !ok {
 		return NewMemoryScoreDocItr([]float32{})
 	}
 	itrs := make([]DocItr, len(files))

@@ -66,19 +66,19 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else if req.Method == "GET" && len(p) == 0 {
 
 		queryParams := req.URL.Query()
-		
+
 		offset, err := QueryIntVal(queryParams, "offset", 0)
 		if err != nil {
 			http.Error(w, "Invalid value for offset", 400)
 			return
 		}
-		
+
 		limit, err := QueryIntVal(queryParams, "limit", 10)
 		if err != nil {
 			http.Error(w, "Invalid value for limit", 400)
 			return
 		}
-		
+
 		scorerStrings, ok := queryParams["score"]
 		if !ok || len(scorerStrings) == 0 {
 			http.Error(w, "No score function was specified", 400)
@@ -90,13 +90,13 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "Score parameter is not valid JSON", 400)
 			return
 		}
-		
+
 		query := Query{
 			Offset: offset,
 			Limit:  limit,
 			Scorer: *scorer,
 		}
-		
+
 		results, err := sds.db.Query(query)
 		response, err := json.Marshal(results)
 		if err != nil {

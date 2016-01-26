@@ -6,12 +6,12 @@ import (
 
 type ProductComponents []DocItr
 
-func (a ProductComponents) Len() int           { return len(a) }
-func (a ProductComponents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ProductComponents) Len() int      { return len(a) }
+func (a ProductComponents) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ProductComponents) Less(i, j int) bool {
 	min1, max1 := a[i].GetBounds()
 	min2, max2 := a[j].GetBounds()
-	return max1 - min1 > max2 - min2
+	return max1-min1 > max2-min2
 }
 
 type ProductDocItr struct {
@@ -72,7 +72,7 @@ func (op *ProductDocItr) Next(minId int64) bool {
 				if curDocId >= minId {
 					break
 				}
-				if ! part.Next(minId) {
+				if !part.Next(minId) {
 					return false
 				}
 			}

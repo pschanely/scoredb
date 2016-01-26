@@ -15,37 +15,37 @@ func TestFieldOp(t *testing.T) {
 	)
 	fieldop := FieldDocItr{lists: FieldDocItrs{l1, l2}}
 	if !fieldop.Next(0) {
-		t.Error()
+		t.FailNow()
 	}
 	docId, _ := fieldop.Cur()
 	if docId != 1 {
-		t.Error()
+		t.FailNow()
 	}
 	if !fieldop.Next(2) {
-		t.Error()
+		t.FailNow()
 	}
 	docId, _ = fieldop.Cur()
 	if docId != 2 {
-		t.Error()
+		t.FailNow()
 	}
 	if !fieldop.Next(3) {
-		t.Error()
+		t.FailNow()
 	}
 	docId, _ = fieldop.Cur()
 	if docId != 5 {
-		t.Error()
+		t.FailNow()
 	}
 	if !fieldop.SetBounds(0.75, 1.0) {
-		t.Error()
+		t.FailNow()
 	}
 	if !fieldop.Next(6) {
-		t.Error()
+		t.FailNow()
 	}
 	docId, _ = fieldop.Cur()
 	if docId != 8 {
-		t.Error()
+		t.FailNow()
 	}
 	if fieldop.Next(9) {
-		t.Error()
+		t.FailNow()
 	}
 }

@@ -8,7 +8,7 @@ import (
 // Important: for bounds caluclation reasons, assumes only positive values are provided as inputs!
 type PowDocItr struct {
 	exp, oneOverExp float32
-	itr DocItr
+	itr             DocItr
 }
 
 func Pow(val, exp float32) float32 {
@@ -39,7 +39,7 @@ func (op *PowDocItr) GetBounds() (min, max float32) {
 }
 func (op *PowDocItr) SetBounds(min, max float32) bool {
 	oneOverExp := op.oneOverExp
-	v1 := Pow(min, oneOverExp) 
+	v1 := Pow(min, oneOverExp)
 	v2 := Pow(max, oneOverExp)
 	if v1 < v2 {
 		return op.itr.SetBounds(v1, v2)

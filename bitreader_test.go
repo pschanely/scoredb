@@ -13,13 +13,13 @@ func TestBitReader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	
+
 	wtr, err := NewBitWriter(file)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 	wtr.WriteVarUInt32(7)
-	wtr.WriteBits(42, 21) 
+	wtr.WriteBits(42, 21)
 	wtr.WriteVarUInt32(0)
 	wtr.WriteVarUInt32(1)
 	wtr.WriteVarUInt32(2)
@@ -46,7 +46,7 @@ func TestBitReader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	
+
 	fd, err := os.OpenFile(filename, os.O_RDWR, 0666)
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -102,7 +102,6 @@ func TestBitReader(t *testing.T) {
 
 }
 
-
 func TestBitReaderVolume(t *testing.T) {
 	filename := RmAllTestData()("bitreader.volume")
 	defer RmAllTestData()
@@ -111,21 +110,21 @@ func TestBitReaderVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	
+
 	wtr, err := NewBitWriter(file)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	for i := 0; i <200; i++ {
+	for i := 0; i < 200; i++ {
 		wtr.WriteVarUInt32(uint32(i * i))
-		wtr.WriteBits(uint64(i), uint(i % 23)+10)
+		wtr.WriteBits(uint64(i), uint(i%23)+10)
 	}
 	err = wtr.Close()
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	
+
 	fd, err := os.OpenFile(filename, os.O_RDWR, 0666)
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -134,12 +133,12 @@ func TestBitReaderVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	for i := 0; i <200; i++ {
+	for i := 0; i < 200; i++ {
 		val, err := rdr.ReadVarUInt32()
-		if err != nil || int(val) != i * i {
+		if err != nil || int(val) != i*i {
 			t.Fatalf("val:%v, err:%v", val, err)
 		}
-		fixedval, err := rdr.ReadBits(uint(i % 23)+10)
+		fixedval, err := rdr.ReadBits(uint(i%23) + 10)
 		if err != nil || int(fixedval) != i {
 			t.Fatalf("val:%v, err:%v", fixedval, err)
 		}

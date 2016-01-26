@@ -9,8 +9,8 @@ import (
 )
 
 func CallAndCheck(db Db, t *testing.T, r1 []string, limit int, scorer []interface{}) {
-	r2, err := db.Query(Query{Limit:limit, Scorer:scorer})
-	if (err != nil) {
+	r2, err := db.Query(Query{Limit: limit, Scorer: scorer})
+	if err != nil {
 		t.Fatal(err)
 	}
 	if len(r1) != len(r2.Ids) {
@@ -36,48 +36,48 @@ func DbBasicsTest(db Db, t *testing.T) {
 	if err != nil {
 		t.Error(fmt.Sprintf("%v", err))
 	}
-	CallAndCheck(db, t, []string{"r3", "r1"}, 2, []interface{}{"field", "height"})		
-	CallAndCheck(db, t, []string{"r1", "r2"}, 2, []interface{}{"sum", 
-		[]interface{}{"field", "age"}, 
+	CallAndCheck(db, t, []string{"r3", "r1"}, 2, []interface{}{"field", "height"})
+	CallAndCheck(db, t, []string{"r1", "r2"}, 2, []interface{}{"sum",
+		[]interface{}{"field", "age"},
 		[]interface{}{"field", "height"}})
-	CallAndCheck(db, t, []string{"r1"}, 1, []interface{}{"sum", 
-		[]interface{}{"field", "age"}, 
+	CallAndCheck(db, t, []string{"r1"}, 1, []interface{}{"sum",
+		[]interface{}{"field", "age"},
 		[]interface{}{"field", "height"}})
-	CallAndCheck(db, t, []string{"r3", "r1"}, 2, []interface{}{"sum", 
+	CallAndCheck(db, t, []string{"r3", "r1"}, 2, []interface{}{"sum",
 		[]interface{}{"scale", 0.1, []interface{}{"field", "age"}},
 		[]interface{}{"scale", 10.0, []interface{}{"field", "height"}}})
-	CallAndCheck(db, t, []string{"r3", "r2"}, 2, []interface{}{"sum", 
-		[]interface{}{"scale", -1.0, []interface{}{"field", "age"}}, 
+	CallAndCheck(db, t, []string{"r3", "r2"}, 2, []interface{}{"sum",
+		[]interface{}{"scale", -1.0, []interface{}{"field", "age"}},
 		[]interface{}{"scale", -1.0, []interface{}{"field", "height"}}})
-	CallAndCheck(db, t, []string{"r2", "r1", "r3"}, 3, []interface{}{"sum", 
-		[]interface{}{"scale", 1.0, []interface{}{"field", "age"}}, 
+	CallAndCheck(db, t, []string{"r2", "r1", "r3"}, 3, []interface{}{"sum",
+		[]interface{}{"scale", 1.0, []interface{}{"field", "age"}},
 		[]interface{}{"scale", -100.0, []interface{}{"field", "height"}}})
-	CallAndCheck(db, t, []string{}, 0, []interface{}{"sum", 
-		[]interface{}{"field", "age"}, 
+	CallAndCheck(db, t, []string{}, 0, []interface{}{"sum",
+		[]interface{}{"field", "age"},
 		[]interface{}{"field", "height"}})
-	CallAndCheck(db, t, []string{"r1", "r2", "r3"}, 3, []interface{}{"sum", 
+	CallAndCheck(db, t, []string{"r1", "r2", "r3"}, 3, []interface{}{"sum",
 		[]interface{}{"field", "age"},
 		[]interface{}{"pow", []interface{}{"field", "height"}, 2.0}})
 	CallAndCheck(db, t, []string{"r3", "r1", "r2"}, 3, []interface{}{"sum",
 		[]interface{}{"field", "age"},
 		[]interface{}{"pow", []interface{}{"field", "height"}, 10.0}})
-	CallAndCheck(db, t, []string{"r1", "r3", "r2"}, 3, []interface{}{"product", 
-		[]interface{}{"field", "age"}, 
+	CallAndCheck(db, t, []string{"r1", "r3", "r2"}, 3, []interface{}{"product",
+		[]interface{}{"field", "age"},
 		[]interface{}{"field", "height"}})
-	CallAndCheck(db, t, []string{"r3", "r1", "r2"}, 3, []interface{}{"min", 
-		[]interface{}{"field", "age"}, 
+	CallAndCheck(db, t, []string{"r3", "r1", "r2"}, 3, []interface{}{"min",
+		[]interface{}{"field", "age"},
 		[]interface{}{"field", "height"}})
-	CallAndCheck(db, t, []string{"r1", "r2", "r3"}, 3, []interface{}{"custom_linear", 
-		[]interface{}{	// scores by closeness to age 30:
+	CallAndCheck(db, t, []string{"r1", "r2", "r3"}, 3, []interface{}{"custom_linear",
+		[]interface{}{ // scores by closeness to age 30:
 			[]interface{}{float32(0), float32(0.0)},
-			[]interface{}{float32(30), float32(1.0)}, 
+			[]interface{}{float32(30), float32(1.0)},
 			[]interface{}{float32(100), float32(0.0)}},
 		[]interface{}{"field", "age"}})
 	CallAndCheck(db, t, []string{"r3", "r2", "r1"}, 3, []interface{}{"geo_distance", 45.0, -69.9, "lat", "lon"})
 	CallAndCheck(db, t, []string{"r3", "r1", "r2"}, 3, []interface{}{"geo_distance", 20.0, 70.0, "lat", "lon"})
 }
 
-func RmAllTestData() (func(name string) string) {
+func RmAllTestData() func(name string) string {
 	tmpDir := os.TempDir()
 	dirfd, err := os.Open(tmpDir)
 	if err == nil {
@@ -91,7 +91,7 @@ func RmAllTestData() (func(name string) string) {
 		}
 	}
 	return func(name string) string {
-		fullname := path.Join(tmpDir, "scoredbtest." + name)
+		fullname := path.Join(tmpDir, "scoredbtest."+name)
 		return fullname
 	}
 }

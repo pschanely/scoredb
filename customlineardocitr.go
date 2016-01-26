@@ -8,7 +8,7 @@ type CustomPoint struct {
 	X, Y float32
 }
 
-// Remaps a value according to a user-specified function that linearly interpolates 
+// Remaps a value according to a user-specified function that linearly interpolates
 // among a set of (x, y) points.
 type CustomLinearDocItr struct {
 	points []CustomPoint
@@ -18,17 +18,17 @@ type CustomLinearDocItr struct {
 func ComputeCustomFunc(x float32, points []CustomPoint) float32 {
 	numPoints := len(points)
 	idx := sort.Search(numPoints, func(i int) bool {
-		return points[i].X >= x 
+		return points[i].X >= x
 	})
 	if idx == 0 {
 		return points[0].Y
 	} else if idx == numPoints {
-		return points[numPoints - 1].Y
+		return points[numPoints-1].Y
 	} else {
-		p1 := points[idx - 1]
+		p1 := points[idx-1]
 		p2 := points[idx]
 		pctInto := (x - p1.X) / (p2.X - p1.X)
-		return p2.Y * pctInto + p1.Y * (1.0 - pctInto)
+		return p2.Y*pctInto + p1.Y*(1.0-pctInto)
 	}
 }
 
@@ -70,10 +70,10 @@ func CheckIntersection(yValue float32, p1, p2 CustomPoint, insideMin, insideMax 
 	// intersect descending:  y 3 at {3 3}-{6 1}: 0
 	if p1.Y <= yValue && yValue <= p2.Y { // intersect while function is ascending
 		earliness := (p2.Y - yValue) / (p2.Y - p1.Y)
-		xIntersect = p1.X * earliness + p2.X * (1.0 - earliness)
+		xIntersect = p1.X*earliness + p2.X*(1.0-earliness)
 	} else if p1.Y >= yValue && yValue >= p2.Y { // intersect while function is descending
 		lateness := (p1.Y - yValue) / (p1.Y - p2.Y)
-		xIntersect = p2.X * lateness + p1.X * (1.0 - lateness)
+		xIntersect = p2.X*lateness + p1.X*(1.0-lateness)
 	} else {
 		return
 	}
@@ -83,8 +83,8 @@ func CheckIntersection(yValue float32, p1, p2 CustomPoint, insideMin, insideMax 
 
 func (op *CustomLinearDocItr) SetBounds(outsideMin, outsideMax float32) bool {
 	insideMin, insideMax := PositiveInfinity, NegativeInfinity // start with impossible (inverted) range
-	for idx := len(op.points) - 1; idx > 0; idx -- {
-		p1 := op.points[idx - 1]
+	for idx := len(op.points) - 1; idx > 0; idx-- {
+		p1 := op.points[idx-1]
 		p2 := op.points[idx]
 		CheckIntersection(outsideMin, p1, p2, &insideMin, &insideMax)
 		CheckIntersection(outsideMax, p1, p2, &insideMin, &insideMax)
@@ -97,7 +97,7 @@ func (op *CustomLinearDocItr) SetBounds(outsideMin, outsideMax float32) bool {
 	if outsideMin <= firstPoint.Y && firstPoint.Y <= outsideMax {
 		insideMin = NegativeInfinity
 	}
-	lastPoint := op.points[len(op.points) - 1]
+	lastPoint := op.points[len(op.points)-1]
 	if outsideMin <= lastPoint.Y && lastPoint.Y <= outsideMax {
 		insideMax = PositiveInfinity
 	}

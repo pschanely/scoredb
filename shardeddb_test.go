@@ -22,4 +22,3 @@ func TestShardedDb(t *testing.T) {
 	}
 	DbBasicsTest(db, t)
 }
-

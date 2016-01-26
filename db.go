@@ -21,14 +21,13 @@ type DocScore struct {
 }
 
 type Record struct {
-	Id string
+	Id     string
 	Values map[string]float32
 }
 
 type QueryResult struct {
 	Ids []string
 }
-
 
 // Three layers of database interfaces, each one wrapping the next:
 
@@ -53,10 +52,9 @@ type IdBackend interface { // stores a mapping from scoredb's identifiers to the
 	Get(scoreIds []int64) ([]string, error)
 }
 
-
 type BaseDb struct {
 	StreamingDb StreamingDb
-	IdDb IdBackend
+	IdDb        IdBackend
 }
 
 func (db BaseDb) BulkIndex(records []Record) error {
@@ -142,15 +140,14 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 
 func ToFloat32(val interface{}) (float32, error) {
 	switch typed := val.(type) {
-	case float32: 
+	case float32:
 		return typed, nil
-	case float64: 
+	case float64:
 		return float32(typed), nil
 	default:
 		return 0.0, errors.New(fmt.Sprintf("Invalid value ('%s') given, must be floating point number", val))
 	}
 }
-
 
 // BaseStreamingDb : The usual way to bridge a StreamingDb to a DbBackend
 
@@ -205,9 +202,9 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		}
 		weight := args[0]
 		switch typed := weight.(type) {
-		case float32: 
+		case float32:
 			return &ScaleDocItr{typed, itr}, nil
-		case float64: 
+		case float64:
 			return &ScaleDocItr{float32(typed), itr}, nil
 		default:
 			return nil, errors.New(fmt.Sprintf("Invalid weight ('%s') given to scale function, must be floating point number", weight))
@@ -226,7 +223,7 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		}
 		return &DiffDocItr{
 			target: target,
-			itr: itr,
+			itr:    itr,
 		}, nil
 	case "pow":
 		if len(args) != 2 {
@@ -248,7 +245,7 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		if len(args) != 2 {
 			return nil, errors.New("Wrong number of arguments to custom_linear function")
 		}
-		
+
 		inputPoints := args[0].([]interface{})
 		points := make([]CustomPoint, len(inputPoints))
 		for idx, inputPoint := range inputPoints {
@@ -314,5 +311,3 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		return nil, errors.New(fmt.Sprintf("Scoring function '%s' is not recognized", scorer[0]))
 	}
 }
-
-

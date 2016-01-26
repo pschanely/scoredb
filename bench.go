@@ -54,7 +54,7 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, maxRecords in
 		colMap[colIdx] = colName
 	}
 
-	totalRecs := []int64{} 
+	totalRecs := []int64{}
 	indexTimes := []int64{}
 	queryTimes := [][]int64{}
 	nResults := 10
@@ -118,23 +118,23 @@ func RunBenchmark(db LinearCombinationBackend, csvFilename string, maxRecords in
 			// indexing one at a time
 			// id := db.Index(record)
 			// recordIndexIds = append(recordIndexIds, id)
-			
+
 			totalCount++
-			recordGroup[curGroupSize] = Record{Id: fmt.Sprintf("%d",totalCount), Values: record}
+			recordGroup[curGroupSize] = Record{Id: fmt.Sprintf("%d", totalCount), Values: record}
 			curGroupSize++
 			if curGroupSize == bucketSize {
 				t0 := time.Now().UnixNano()
 				db.BulkIndex(recordGroup)
 				totalRecs = append(totalRecs, totalCount)
-				indexTimes = append(indexTimes, time.Now().UnixNano() - t0)
+				indexTimes = append(indexTimes, time.Now().UnixNano()-t0)
 				queryRoundTimes := make([]int64, len(weights))
-				
+
 				for idx, query := range weights {
 					//fmt.Printf("%08d Q start\n", time.Now().UnixNano() % 100000000)
 					t0 := time.Now().UnixNano()
 					results := db.LinearQuery(nResults, query)
 					queryTime := time.Now().UnixNano() - t0
-					fmt.Printf("%08d Q results: %v\n", time.Now().UnixNano() % 100000000, results)
+					fmt.Printf("%08d Q results: %v\n", time.Now().UnixNano()%100000000, results)
 					queryRoundTimes[idx] = queryTime
 				}
 				curGroupSize = 0

@@ -9,10 +9,10 @@ func TestProductDocItr(t *testing.T) {
 	i2 := NewMemoryScoreDocItr([]float32{1.0, 0.0, 0.7})
 	itr := NewProductDocItr([]DocItr{i1, i2})
 
-	if (itr.min != 0.0) {
+	if itr.min != 0.0 {
 		t.Fatalf("%v", itr.min)
 	}
-	if (itr.max != 0.8) {
+	if itr.max != 0.8 {
 		t.Fatalf("%v", itr.max)
 	}
 
@@ -21,10 +21,10 @@ func TestProductDocItr(t *testing.T) {
 	min1, _ := i1.GetBounds()
 	min2, _ := i2.GetBounds()
 
-	if (min1 != 0.5) {
+	if min1 != 0.5 {
 		t.Fatalf("%v", min1)
 	}
-	if (min2 * 0.2 == 0.5) {
+	if min2*0.2 == 0.5 {
 		t.Fatalf("%v", min2)
 	}
 }

@@ -3,17 +3,17 @@ package scoredb
 import (
 	"bufio"
 	"fmt"
+	"github.com/edsrzf/mmap-go"
 	"io"
 	"os"
 	"unsafe"
-	"github.com/edsrzf/mmap-go"
 )
 
 type BitWriter struct {
 	BufferedWriter *bufio.Writer
-	File *os.File
-	Cur uint64
-	CurBitsUsed uint
+	File           *os.File
+	Cur            uint64
+	CurBitsUsed    uint
 }
 
 func FileIsAtEnd(file *os.File) bool {
@@ -32,19 +32,18 @@ func ReadNativeLong(buf []byte) uint64 {
 	return *((*uint64)(unsafe.Pointer(&buf[0])))
 }
 
-
-func NewBitWriter(file *os.File) (*BitWriter, error) {	
+func NewBitWriter(file *os.File) (*BitWriter, error) {
 	writer := BitWriter{File: file}
-	if ! FileIsAtEnd(file) {
+	if !FileIsAtEnd(file) {
 		buf := make([]byte, 16)
-		
+
 		file.Seek(-16, 2) // Goto EOF (whence=2 means "relative to end")
 		nRead, err := file.Read(buf)
 		if nRead != 16 {
 			return nil, err
 		}
 		writer.CurBitsUsed = uint(ReadNativeLong(buf[8:]))
-		writer.Cur =  ReadNativeLong(buf) >> (64 - writer.CurBitsUsed)
+		writer.Cur = ReadNativeLong(buf) >> (64 - writer.CurBitsUsed)
 
 		file.Seek(-16, 2) // Goto EOF (whence=2 means "relative to end")
 	}
@@ -54,7 +53,7 @@ func NewBitWriter(file *os.File) (*BitWriter, error) {
 
 func (writer *BitWriter) Close() error {
 	bitsUsed := writer.CurBitsUsed
-	WriteNativeLong(writer.Cur << (64 - bitsUsed), writer.BufferedWriter)
+	WriteNativeLong(writer.Cur<<(64-bitsUsed), writer.BufferedWriter)
 	WriteNativeLong(uint64(bitsUsed), writer.BufferedWriter)
 	err := writer.BufferedWriter.Flush()
 	if err != nil {
@@ -65,7 +64,7 @@ func (writer *BitWriter) Close() error {
 
 func (writer *BitWriter) WriteBits(val uint64, numBits uint) error { // assumes val is all zeros above numBits
 	cur, bitsUsed := writer.Cur, writer.CurBitsUsed
-	overflow := int(bitsUsed + numBits) - 64
+	overflow := int(bitsUsed+numBits) - 64
 	if overflow >= 0 { // split the write
 		initialBits := numBits - uint(overflow)
 		cur = (cur << initialBits) | (val >> uint(overflow))
@@ -84,11 +83,11 @@ func (writer *BitWriter) WriteBits(val uint64, numBits uint) error { // assumes 
 
 func (writer *BitWriter) WriteVarUInt32(val uint32) error {
 	var sizeFactor uint64
-	if        val & 0xfffffff0 == 0 {
+	if val&0xfffffff0 == 0 {
 		sizeFactor = 0
-	} else if val & 0xffffff00 == 0 {
+	} else if val&0xffffff00 == 0 {
 		sizeFactor = 1
-	} else if val & 0xffff0000 == 0 {
+	} else if val&0xffff0000 == 0 {
 		sizeFactor = 2
 	} else {
 		sizeFactor = 3
@@ -99,32 +98,30 @@ func (writer *BitWriter) WriteVarUInt32(val uint32) error {
 	return nil
 }
 
-
-
 type BitReader struct {
-	OrigMmap *mmap.MMap
-	Mmap []uint64
-	MmapPtr uint
+	OrigMmap        *mmap.MMap
+	Mmap            []uint64
+	MmapPtr         uint
 	MmapPtrBitsLeft uint
-	File *os.File
-	Cur uint64
-	CurBitsLeft uint
+	File            *os.File
+	Cur             uint64
+	CurBitsLeft     uint
 }
 
-func NewBitReader(file *os.File) (*BitReader, error) {	
+func NewBitReader(file *os.File) (*BitReader, error) {
 	mapSlice, err := mmap.Map(file, mmap.RDONLY, 0)
 	if err != nil {
 		panic(err)
 	}
 	curPos, err := file.Seek(0, 1)
-	if curPos % 8 != 0 {
+	if curPos%8 != 0 {
 		panic(fmt.Sprintf("BitReader started at byte %v; must be 8 byte aligned", curPos))
 	}
 	return &BitReader{
-		File: file,
-		OrigMmap: &mapSlice,
-		Mmap: (*((*[10000000]uint64)(unsafe.Pointer(&mapSlice[0]))))[:],
-		MmapPtr: uint(curPos / 8),
+		File:            file,
+		OrigMmap:        &mapSlice,
+		Mmap:            (*((*[10000000]uint64)(unsafe.Pointer(&mapSlice[0]))))[:],
+		MmapPtr:         uint(curPos / 8),
 		MmapPtrBitsLeft: 64,
 	}, nil
 }
@@ -140,7 +137,7 @@ func (reader *BitReader) Close() error {
 
 func (reader *BitReader) Refill(cur uint64, bitsLeft uint, numNeeded uint) (uint64, uint, error) {
 	wanted := 64 - bitsLeft
-	if wanted >= reader.MmapPtrBitsLeft { 
+	if wanted >= reader.MmapPtrBitsLeft {
 		bits := reader.Mmap[reader.MmapPtr] << (64 - reader.MmapPtrBitsLeft)
 		cur = cur | (bits >> bitsLeft)
 		bitsLeft += reader.MmapPtrBitsLeft
@@ -157,7 +154,7 @@ func (reader *BitReader) Refill(cur uint64, bitsLeft uint, numNeeded uint) (uint
 	bitsLeft = 64
 	return cur, bitsLeft, nil
 }
-		
+
 func (reader *BitReader) ReadBits(numBits uint) (uint64, error) {
 	cur, bitsLeft := reader.Cur, reader.CurBitsLeft
 	var err error
@@ -184,4 +181,5 @@ func (reader *BitReader) ReadVarUInt32() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-        return uint32(val), nil                                                                                                                          }
+	return uint32(val), nil
+}

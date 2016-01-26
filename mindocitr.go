@@ -7,12 +7,12 @@ import (
 
 type MinComponents []DocItr
 
-func (a MinComponents) Len() int           { return len(a) }
-func (a MinComponents) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a MinComponents) Len() int      { return len(a) }
+func (a MinComponents) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a MinComponents) Less(i, j int) bool {
 	min1, max1 := a[i].GetBounds()
 	min2, max2 := a[j].GetBounds()
-	return max1 - min1 > max2 - min2
+	return max1-min1 > max2-min2
 }
 
 type MinDocItr struct {
@@ -72,7 +72,7 @@ func (op *MinDocItr) Next(minId int64) bool {
 				if curDocId >= minId {
 					break
 				}
-				if ! part.Next(minId) {
+				if !part.Next(minId) {
 					return false
 				}
 			}
@@ -103,7 +103,7 @@ func (op *MinDocItr) SetBounds(min, max float32) bool {
 		curMin, curMax := component.GetBounds()
 		if curMin < min {
 			//fmt.Printf("MinDocItr SetBounds for component %v %v\n", min, curMax)
-			if ! component.SetBounds(min, curMax) {
+			if !component.SetBounds(min, curMax) {
 				return false
 			}
 		}
