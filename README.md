@@ -2,6 +2,7 @@
 
 A simple database index optimized for returning results by custom scoring functions.
 
+To my knowledge, it is the only open source system with an algorithm designed for this purpose; in some cases, it is faster than elasticsearch's implementation by an order of magnitude. (see below)
 
 # Why?
 
