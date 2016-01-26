@@ -17,6 +17,7 @@ Though Scoredb has a straightforward programatic interface, you can run a simple
 
 ```
 $ go get github.com/pschanely/scoredb
+$ go install github.com/pschanely/scoredb/...
 $ ${GOPATH}/bin/scoredb serve -datadir my_data_directory -port 11625
 ```
 ... and in another shell:
