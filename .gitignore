@@ -20,8 +20,6 @@ _cgo_export.*
 
 _testmain.go
 
-/scoredb
-
 *.exe
 *.test
 *.prof
