@@ -8,7 +8,46 @@ A simple database optimized for returning results by custom scoring functions.
 Scoredb is optimized for systems that want to find the top scoring results, where the scoring function is specified by the client, 
 and may depend on more than one field.
 It may be a good choice for any system that needs to incorporate multiple factors when returning results.
-For instance, it might power a used car website to produce results based on factors like milage, year, and distance.
+For instance, it might power a used car website to produce results based on factors like mileage, year, and distance.
+
+
+# Run It
+
+Though Scoredb has a straightforward programatic interface, you can run a simple standalone HTTP server like so:
+
+```
+$ go get github.com/pschanely/scoredb
+$ ${GOPATH}/bin/scoredb serve -datadir my_data_directory -port 11625
+```
+... and in another shell:
+```
+# insert some people with ages and weights
+$ curl -XPUT http://localhost:11625/jim -d '{"age":21, "weight":170}'
+$ curl -XPUT http://localhost:11625/bob -d '{"age":34, "weight":150}'
+
+# get people by age, weight, or the sum of their age and weight:
+$ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "age"]'
+{"Ids":["bob","jim"]}
+$ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "weight"]'
+{"Ids":["jim","bob"]}
+$ curl -G 'http://localhost:11625' --data-urlencode 'score=["sum", ["field", "age"], ["field", "weight"]]'
+{"Ids":["jim","bob"]}
+```
+
+
+# The Algorithm
+
+Scoredb uses a format on disk that is very similar to that used by text search systems like solr and elasticsearch.
+We divide each field into ranges of values (buckets) and, for each bucket, maintain a file containing the IDs of objects that have their value inside that range.
+
+The IDs in each file are strictly increasing; this means that we can traverse several buckets efficiently by using a heap of buckets to find the next smallest id among many buckets.
+
+As we traverse the buckets, we score the objects produced and put them into a candidate result set.  The result set is capped at the `&limit=` parameter specified by the user.  As poorly scoring results get kicked out of the candidate result set, we can infer a lower bound on the final score.  With some math, we can propagate that lower bound backwards through the scoring function to infer bounds on the individual fields.  These bounds may then be used to stop traversing very poorly scoring buckets that could not produce a good enough final score.  In this manner, as the candidate result set gets better and better, the system can eliminate more and more buckets to arrive at a result very quickly.
+
+The following graph shows bucket elimination over the course of an example query combining two fields, "age" and "wages":
+
+<img src="bucket_execution.png" width="400">
+
 
 # Performance
 
@@ -37,30 +76,25 @@ The dataset is anonymized US census data, each object representing an individual
 This is an unscientific test!  Just my personal laptop, [this datafile](http://millstonecw.com/censusdata.csv.bz2) repeated a few times over for the biggest datasets, and `scoredb benchmark -maxrecords 10000000 -csv censusdata.csv`.  There's no substitute for testing with your own data, queries, and hardware.
 
 It's clear from the graph that scoredb's performance can vary significantly based on the scoring function.
-Read more about that below.
+Some guidance on scoring:
 
-# Run It
+* Prefer to combine fields with addition, multiplication, and, in particular, minimum, because they allow the computation of useful lower bounds.  Combining fields with a max() function does not, because a bad value in one field can be completely overcome by a good value in another.
+* Combining many fields instead of a few will make the query take longer, because it takes longer to determine useful lower bounds on each field.
+* Prefer to engineer weights so that the contributions from each of your fields is similar in scale.  Scoredb may never be able to find useful bounds on fields that tweak the final score very slightly.
 
-Though Scoredb has a straightforward programatic interface, you can run a simple standalone HTTP server like so:
 
-```
-$ go get github.com/pschanely/scoredb
-$ ${GOPATH}/bin/scoredb serve -datadir my_data_directory -port 11625
-```
-... and in another shell:
-```
-# insert some people with ages and weights
-$ curl -XPUT http://localhost:11625/jim -d '{"age":21, "weight":170}'
-$ curl -XPUT http://localhost:11625/bob -d '{"age":34, "weight":150}'
+# Limitations
 
-# get people by age, weight, or the sum of their age and weight:
-$ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "age"]'
-{"Ids":["bob","jim"]}
-$ curl -G 'http://localhost:11625' --data-urlencode 'score=["field", "weight"]'
-{"Ids":["jim","bob"]}
-$ curl -G 'http://localhost:11625' --data-urlencode 'score=["sum", ["field", "age"], ["field", "weight"]]'
-{"Ids":["jim","bob"]}
-```
+Scoredb is minimalistic and highly specialized; it is intended to just act as one piece of a larger system:
+* Scoredb has no delete or update operation.  To remove or change an object, you must build a new index.
+* It stores objects as a flat set of key-value pairs with string keys and numeric values only. (internally, all values are 32 bit floating point values)
+* Scoredb can only respond to queries with lists of identifiers; scoredb's indexes do not provide efficient access to the original field data.
+* Scoredb has no built-in clustering, redundancy, or backup functions.
+* Adding objects to scoredb is slow if you add them one at a time.  Bulk insertion should be used whenever possible.
+* Scoredb requires many open files; sometimes thousands of them.  You will need to increase default filehandle limits on your system (see "ulimit" on linux).
+* Scoredb expects you to provide every field for every object; objects that are missing a field cannot be returned from queries that use the missing fields.
+* Scoredb data files are endian specific; most modern CPUs are little endian, so you won't normally have to worry about this.
+
 
 # Supported Query Functions
 
@@ -109,40 +143,6 @@ Since you typically want smaller distances to have higher scores, you'll probabl
   * Example: `["geo_distance", 40.7, -74.0, "home_lat", "home_lng"]` Scores each result by how far its home_lat and home_lng fields put it from New York City.
 
 
-
-# The Algorithm
-
-Scoredb uses a format on disk that is very similar to that used by text search systems like solr and elasticsearch.
-We divide each field into ranges of values (buckets) and, for each bucket, maintain a file containing the IDs of objects that have their value inside that range.
-
-The IDs in each file are strictly increasing; this means that we can traverse several buckets efficiently by using a heap of buckets to find the next smallest id among many buckets.
-
-As we traverse the buckets, we score the objects produced and put them into a candidate result set.  The result set is capped at the `&limit=` parameter specified by the user.  As poorly scoring results get kicked out of the candidate result set, we can infer a lower bound on the final score.  With some math, we can propagate that lower bound backwards through the scoring function to infer bounds on the individual fields.  These bounds may then be used to stop traversing very poorly scoring buckets that could not produce a good enough final score.  In this manner, as the candidate result set gets better and better, the system can eliminate more and more buckets to arrive at a result very quickly.
-
-The following graph shows bucket elimination over the course of an example query combining two fields, "age" and "wages":
-
-<img src="bucket_execution.png" width="400">
-
-Because of the way Scoredb works, some scoring functions will perform much better than others.  Some guidance:
-
-* Prefer to combine fields with addition, multiplication, and, in particular, minimum, because they allow the computation of useful lower bounds.  Combining fields with a max() function does not, because a bad value in one field can be completely overcome by a good value in another.
-* Combining many fields instead of a few will make the query take longer, because it takes longer to determine useful lower bounds on each field.
-* Prefer to engineer weights so that the contributions from each of your fields is similar in scale.  Scoredb may never be able to find useful bounds on fields that tweak the final score very slightly.
-
-
-# Limitations
-
-Scoredb is minimalistic and highly specialized; it is intended to just act as one piece of a larger system:
-* Scoredb has no delete or update operation.  To remove or change an object, you must build a new index.
-* It stores objects as a flat set of key-value pairs with string keys and numeric values only. (internally, all values are 32 bit floating point values)
-* Scoredb can only respond to queries with lists of identifiers; scoredb's indexes do not provide efficient access to the original field data.
-* Scoredb has no built-in clustering, redundancy, or backup functions.
-* Adding objects to scoredb is slow if you add them one at a time.  Bulk insertion should be used whenever possible.
-* Scoredb requires many open files; sometimes thousands of them.  You will need to increase default filehandle limits on your system (see "ulimit" on linux).
-* Scoredb expects you to provide every field for every object; objects that are missing a field cannot be returned from queries that use the missing fields.
-* Scoredb data files are endian specific; most modern CPUs are little endian, so you won't normally have to worry about this.
-
-
 # Status
 
 Though it has reasonable test coverage and a small, straightforward codebase, scoredb is certainly alpha-quality software.
@@ -159,6 +159,7 @@ Thanks are due to the [Samsung Accelerator](http://samsungaccelerator.com) which
 * https://github.com/pschanely
 * https://github.com/rmarianski
 * https://github.com/sleepylemur
+
 
 # Plugs
 
