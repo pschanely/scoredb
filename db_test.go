@@ -11,28 +11,28 @@ import (
 func CallAndCheck(db Db, t *testing.T, r1 []string, limit int, scorer []interface{}) {
 	r2, err := db.Query(Query{Limit:limit, Scorer:scorer})
 	if (err != nil) {
-		t.Fatal()
+		t.Fatal(err)
 	}
 	if len(r1) != len(r2.Ids) {
-		t.Fatal()
+		t.Fatalf("expected: %v found: %v", r1, r2)
 	}
 	for idx, v1 := range r1 {
 		if v1 != r2.Ids[idx] {
-			t.Fatal()
+			t.Fatalf("expected: %v found: %v", r1, r2)
 		}
 	}
 }
 
 func DbBasicsTest(db Db, t *testing.T) {
-	err := db.Index("r1", map[string]float32{"age": 32, "height": 2.0})
+	err := db.Index("r1", map[string]float32{"age": 32, "height": 2.0, "lat": 45.0, "lon": -70.0})
 	if err != nil {
 		t.Error(fmt.Sprintf("%v", err))
 	}
-	err = db.Index("r2", map[string]float32{"age": 25, "height": 1.5})
+	err = db.Index("r2", map[string]float32{"age": 25, "height": 1.5, "lat": 43.0, "lon": -69.0})
 	if err != nil {
 		t.Error(fmt.Sprintf("%v", err))
 	}
-	err = db.Index("r3", map[string]float32{"age": 16, "height": 2.5})
+	err = db.Index("r3", map[string]float32{"age": 16, "height": 2.5, "lat": 45.0, "lon": -95.0})
 	if err != nil {
 		t.Error(fmt.Sprintf("%v", err))
 	}
@@ -55,12 +55,26 @@ func DbBasicsTest(db Db, t *testing.T) {
 	CallAndCheck(db, t, []string{}, 0, []interface{}{"sum", 
 		[]interface{}{"field", "age"}, 
 		[]interface{}{"field", "height"}})
+	CallAndCheck(db, t, []string{"r1", "r2", "r3"}, 3, []interface{}{"sum", 
+		[]interface{}{"field", "age"},
+		[]interface{}{"pow", []interface{}{"field", "height"}, 2.0}})
+	CallAndCheck(db, t, []string{"r3", "r1", "r2"}, 3, []interface{}{"sum",
+		[]interface{}{"field", "age"},
+		[]interface{}{"pow", []interface{}{"field", "height"}, 10.0}})
 	CallAndCheck(db, t, []string{"r1", "r3", "r2"}, 3, []interface{}{"product", 
 		[]interface{}{"field", "age"}, 
 		[]interface{}{"field", "height"}})
 	CallAndCheck(db, t, []string{"r3", "r1", "r2"}, 3, []interface{}{"min", 
 		[]interface{}{"field", "age"}, 
 		[]interface{}{"field", "height"}})
+	CallAndCheck(db, t, []string{"r1", "r2", "r3"}, 3, []interface{}{"custom_linear", 
+		[]interface{}{	// scores by closeness to age 30:
+			[]interface{}{float32(0), float32(0.0)},
+			[]interface{}{float32(30), float32(1.0)}, 
+			[]interface{}{float32(100), float32(0.0)}},
+		[]interface{}{"field", "age"}})
+	CallAndCheck(db, t, []string{"r3", "r2", "r1"}, 3, []interface{}{"geo_distance", 45.0, -69.9, "lat", "lon"})
+	CallAndCheck(db, t, []string{"r3", "r1", "r2"}, 3, []interface{}{"geo_distance", 20.0, 70.0, "lat", "lon"})
 }
 
 func RmAllTestData() (func(name string) string) {

@@ -29,11 +29,21 @@ func (op *PowDocItr) Next(minId int64) bool {
 func (op *PowDocItr) GetBounds() (min, max float32) {
 	exp := op.exp
 	min, max = op.itr.GetBounds()
-	min = Pow(min, exp)
-	max = Pow(max, exp)
-	return min, max
+	v1 := Pow(min, exp)
+	v2 := Pow(max, exp)
+	if v1 < v2 {
+		return v1, v2
+	} else {
+		return v2, v1
+	}
 }
 func (op *PowDocItr) SetBounds(min, max float32) bool {
 	oneOverExp := op.oneOverExp
-	return op.itr.SetBounds(Pow(min, oneOverExp), Pow(max, oneOverExp))
+	v1 := Pow(min, oneOverExp) 
+	v2 := Pow(max, oneOverExp)
+	if v1 < v2 {
+		return op.itr.SetBounds(v1, v2)
+	} else {
+		return op.itr.SetBounds(v2, v1)
+	}
 }

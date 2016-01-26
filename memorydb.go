@@ -106,7 +106,8 @@ func (op *MemoryScoreDocItr) GetBounds() (min, max float32) {
 	return op.min, op.max
 }
 func (op *MemoryScoreDocItr) SetBounds(min, max float32) bool {
-	op.min, op.max = min, max
+	op.min = Max(op.min, min)
+	op.max = Min(op.max, max)
 	return true
 }
 

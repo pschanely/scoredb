@@ -244,6 +244,39 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 			itr: itr,
 			exp: exp,
 		}, nil
+	case "custom_linear":
+		if len(args) != 2 {
+			return nil, errors.New("Wrong number of arguments to custom_linear function")
+		}
+		
+		inputPoints := args[0].([]interface{})
+		points := make([]CustomPoint, len(inputPoints))
+		for idx, inputPoint := range inputPoints {
+			pair := inputPoint.([]interface{})
+			if len(pair) != 2 {
+				return nil, fmt.Errorf("Invalid (x,y) point in custom_linear; found: '%v' instead", pair)
+			}
+			xPoint, err := ToFloat32(pair[0])
+			if err != nil {
+				return nil, err
+			}
+			yPoint, err := ToFloat32(pair[1])
+			if err != nil {
+				return nil, err
+			}
+			points[idx] = CustomPoint{xPoint, yPoint}
+		}
+
+		itr, err := db.QueryItr(args[1].([]interface{}))
+		if err != nil {
+			return nil, err
+		}
+
+		return &CustomLinearDocItr{
+			points: points,
+			docItr: itr,
+		}, nil
+
 	case "geo_distance":
 		if len(args) != 4 {
 			return nil, errors.New("Wrong number of arguments to geo_distance function")
@@ -252,22 +285,22 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		if err != nil {
 			return nil, err
 		}
-		lon, err := ToFloat32(args[1])
+		lng, err := ToFloat32(args[1])
 		if err != nil {
 			return nil, err
 		}
 		latFieldName := args[2].(string)
-		lonFieldName := args[3].(string)
+		lngFieldName := args[3].(string)
 		latItr := &DiffDocItr{target: lat, itr: db.Backend.FieldDocItr(latFieldName)}
-		lonItr := &DiffDocItr{target: lon, itr: db.Backend.FieldDocItr(lonFieldName)}
+		lngItr := &DiffDocItr{target: lng, itr: db.Backend.FieldDocItr(lngFieldName)}
 		// bias longitude distances by approximate latitude (matters less at poles)
 		multiplier := float32(math.Cos(float64(lat) * math.Pi / 180.0))
-		biasedLonItr := &ScaleDocItr{multiplier, lonItr}
+		biasedLngItr := &ScaleDocItr{multiplier, lngItr}
 		// square each component
 		latSquaredItr := &PowDocItr{exp: 2.0, itr: latItr}
-		lonSquaredItr := &PowDocItr{exp: 2.0, itr: biasedLonItr}
+		lngSquaredItr := &PowDocItr{exp: 2.0, itr: biasedLngItr}
 		// sum and square root
-		distanceItr := &PowDocItr{exp: 0.5, itr: NewSumDocItr([]DocItr{latSquaredItr, lonSquaredItr})}
+		distanceItr := &PowDocItr{exp: 0.5, itr: NewSumDocItr([]DocItr{latSquaredItr, lngSquaredItr})}
 		// multiply distance by radius of earth (in km)
 		earthRadius := float32(6371.0)
 		return &ScaleDocItr{earthRadius, distanceItr}, nil
