@@ -98,8 +98,14 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 
 		results, err := sds.db.Query(query)
+		if err != nil {
+			fmt.Printf("Internal error. %+v:  %v\n", query, err)
+			http.Error(w, "Internal Error in ScoreDB; please report", 500)
+			return
+		}
 		response, err := json.Marshal(results)
 		if err != nil {
+			fmt.Printf("Internal error. %+v:  %v\n", query, err)
 			http.Error(w, "Internal Error in ScoreDB; please report", 500)
 			return
 		}

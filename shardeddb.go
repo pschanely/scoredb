@@ -117,6 +117,9 @@ func NewParallelDocItr(parts []DocItr) *ParallelDocItr {
 	}
 	for idx, part := range parts {
 		part := part
+		curMin, curMax := part.GetBounds()
+		op.Bounds.min = Min(op.Bounds.min, curMin)
+		op.Bounds.max = Max(op.Bounds.max, curMax)
 		boundsChannel := make(chan Bounds)
 		op.Comms[idx] = boundsChannel
 		go RunItr(part, idx, op.ResultChannel, boundsChannel)

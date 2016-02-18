@@ -27,6 +27,7 @@ type Record struct {
 
 type QueryResult struct {
 	Ids []string
+	Scores []float32
 }
 
 // Three layers of database interfaces, each one wrapping the next:
@@ -75,10 +76,21 @@ func (db BaseDb) Index(id string, values map[string]float32) error {
 	return db.BulkIndex([]Record{Record{Id: id, Values: values}})
 }
 
+func CandidateIsLess(r1, r2 DocScore) bool {
+	s1, s2 := r1.Score, r2.Score
+	if s1 < s2 {
+		return true
+	} else if s1 > s2 {
+		return false
+	} else {
+		return r1.DocId < r2.DocId
+	}
+}
+
 type BaseDbResultSet []DocScore
 
 func (h BaseDbResultSet) Len() int           { return len(h) }
-func (h BaseDbResultSet) Less(i, j int) bool { return h[i].Score < h[j].Score }
+func (h BaseDbResultSet) Less(i, j int) bool { return CandidateIsLess(h[i], h[j]) }
 func (h BaseDbResultSet) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 func (h *BaseDbResultSet) Push(x interface{}) {
 	*h = append(*h, x.(DocScore))
@@ -100,21 +112,24 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 	if limit == 0 { // we short circuit this case because the code below assumes at least one result
 		return QueryResult{Ids: []string{}}, nil
 	}
+	//fmt.Printf("> %+v\n", query);
 	numResults := offset + limit
 	resultData := make(BaseDbResultSet, 0, numResults+1)
 	results := &resultData
 	heap.Init(results)
-	minScore, maxScore := float32(math.Inf(-1)), float32(math.Inf(1))
+	minCandidate := DocScore{Score: float32(math.Inf(-1))}
+	maxScore := float32(math.Inf(1))
 	docId := int64(-1)
 	var score float32
 	for itr.Next(docId + 1) {
 		docId, score = itr.Cur()
-		if score > minScore {
-			heap.Push(results, DocScore{DocId: docId, Score: score})
+		candidate := DocScore{DocId:docId, Score: score}
+		if CandidateIsLess(minCandidate, candidate) {
+			heap.Push(results, candidate)
 			if results.Len() > numResults {
 				heap.Pop(results)
-				minScore = resultData[0].Score
-				itr.SetBounds(minScore, maxScore)
+				minCandidate = resultData[0]
+				itr.SetBounds(minCandidate.Score, maxScore)
 			}
 		}
 	}
@@ -127,15 +142,21 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 
 	numResults = results.Len()
 	var resultIds = make([]int64, numResults)
+	var resultScores = make([]float32, numResults)
 	for idx, _ := range resultIds {
-		resultIds[numResults-(idx+1)] = heap.Pop(results).(DocScore).DocId
+		rec := heap.Pop(results).(DocScore)
+		i := numResults-(idx+1)
+		resultIds[i] = rec.DocId
+		resultScores[i] = rec.Score
 	}
+	//fmt.Printf("< %+v\n", resultIds);
+	//fmt.Printf("< %+v\n", resultScores);
 
 	clientIds, err := db.IdDb.Get(resultIds)
 	if err != nil {
 		return QueryResult{}, err
 	}
-	return QueryResult{Ids: clientIds}, nil
+	return QueryResult{Ids: clientIds, Scores: resultScores}, nil
 }
 
 func ToFloat32(val interface{}) (float32, error) {
@@ -294,10 +315,10 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		multiplier := float32(math.Cos(float64(lat) * math.Pi / 180.0))
 		biasedLngItr := &ScaleDocItr{multiplier, lngItr}
 		// square each component
-		latSquaredItr := &PowDocItr{exp: 2.0, itr: latItr}
-		lngSquaredItr := &PowDocItr{exp: 2.0, itr: biasedLngItr}
+		latSquaredItr := NewPowDocItr(latItr, 2.0)
+		lngSquaredItr := NewPowDocItr(biasedLngItr, 2.0)
 		// sum and square root
-		distanceItr := &PowDocItr{exp: 0.5, itr: NewSumDocItr([]DocItr{latSquaredItr, lngSquaredItr})}
+		distanceItr := NewPowDocItr(NewSumDocItr([]DocItr{latSquaredItr, lngSquaredItr}), 0.5)
 		// multiply distance by radius of earth (in km)
 		earthRadius := float32(6371.0)
 		return &ScaleDocItr{earthRadius, distanceItr}, nil
