@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -28,6 +29,19 @@ func QueryIntVal(queryParams url.Values, key string, defaultValue int) (int, err
 		return defaultValue, nil
 	}
 	return strconv.Atoi(vals[0])
+}
+
+func QueryFloatVal(queryParams url.Values, key string, defaultValue float32) (float32, error) {
+	vals, ok := queryParams[key]
+	if !ok || len(vals) == 0 {
+		return defaultValue, nil
+	}
+	f64, err := strconv.ParseFloat(vals[0], 32)
+	if err != nil {
+		return 0.0, err
+	} else {
+		return float32(f64), nil
+	}
 }
 
 func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -79,6 +93,12 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		minScore, err := QueryFloatVal(queryParams, "minScore", float32(math.Inf(-1)))
+		if err != nil {
+			http.Error(w, "Invalid value for minscore", 400)
+			return
+		}
+
 		scorerStrings, ok := queryParams["score"]
 		if !ok || len(scorerStrings) == 0 {
 			http.Error(w, "No score function was specified", 400)
@@ -94,6 +114,7 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		query := Query{
 			Offset: offset,
 			Limit:  limit,
+			MinScore: minScore,
 			Scorer: *scorer,
 		}
 

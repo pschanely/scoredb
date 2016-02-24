@@ -2,6 +2,7 @@ package scoredb
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path"
 	"strings"
@@ -9,7 +10,7 @@ import (
 )
 
 func CallAndCheck(db Db, t *testing.T, r1 []string, limit int, scorer []interface{}) {
-	r2, err := db.Query(Query{Limit: limit, Scorer: scorer})
+	r2, err := db.Query(Query{Limit: limit, Scorer: scorer, MinScore: float32(math.Inf(-1))})
 	if err != nil {
 		t.Fatal(err)
 	}

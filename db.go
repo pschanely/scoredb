@@ -10,6 +10,7 @@ import (
 type Query struct {
 	Offset int
 	Limit  int
+	MinScore float32
 
 	// mixed, nested arrays of strings and numbers describing a function; for example: ["sum", ["field", "age"], ["field", "height"]]
 	Scorer []interface{}
@@ -108,7 +109,7 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 	if err != nil {
 		return QueryResult{}, err
 	}
-	offset, limit := query.Offset, query.Limit
+	minScore, offset, limit := query.MinScore, query.Offset, query.Limit
 	if limit == 0 { // we short circuit this case because the code below assumes at least one result
 		return QueryResult{Ids: []string{}}, nil
 	}
@@ -123,6 +124,9 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 	var score float32
 	for itr.Next(docId + 1) {
 		docId, score = itr.Cur()
+		if score < minScore {
+			continue
+		}
 		candidate := DocScore{DocId:docId, Score: score}
 		if CandidateIsLess(minCandidate, candidate) {
 			heap.Push(results, candidate)
@@ -262,6 +266,7 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 			itr: itr,
 			exp: exp,
 		}, nil
+
 	case "custom_linear":
 		if len(args) != 2 {
 			return nil, errors.New("Wrong number of arguments to custom_linear function")
@@ -319,8 +324,8 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		lngSquaredItr := NewPowDocItr(biasedLngItr, 2.0)
 		// sum and square root
 		distanceItr := NewPowDocItr(NewSumDocItr([]DocItr{latSquaredItr, lngSquaredItr}), 0.5)
-		// multiply distance by radius of earth (in km)
-		earthRadius := float32(6371.0)
+		// convert degrees distance to radians and multiply by radius of the earth (in km)
+		earthRadius := float32(6371.0 * math.Pi / 180.0)
 		return &ScaleDocItr{earthRadius, distanceItr}, nil
 	case "field":
 		if len(args) != 1 {
