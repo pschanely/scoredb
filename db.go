@@ -174,6 +174,31 @@ func ToFloat32(val interface{}) (float32, error) {
 	}
 }
 
+func ToXyPoints(input interface{}) ([]CustomPoint, error) {
+	switch inputPoints := input.(type) {
+	case []interface{}:
+		points := make([]CustomPoint, len(inputPoints))
+		for idx, inputPoint := range inputPoints {
+			pair := inputPoint.([]interface{})
+			if len(pair) != 2 {
+				return nil, fmt.Errorf("Invalid (x,y) point; found: '%v' instead", pair)
+			}
+			xPoint, err := ToFloat32(pair[0])
+			if err != nil {
+				return nil, err
+			}
+			yPoint, err := ToFloat32(pair[1])
+			if err != nil {
+				return nil, err
+			}
+			points[idx] = CustomPoint{xPoint, yPoint}
+		}
+		return points, nil;
+	default:
+		return nil, fmt.Errorf("Expected array of (x,y) points; found: '%v' instead", input)
+	}
+}
+
 // BaseStreamingDb : The usual way to bridge a StreamingDb to a DbBackend
 
 type BaseStreamingDb struct {
@@ -265,6 +290,36 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		return &PowDocItr{
 			itr: itr,
 			exp: exp,
+		}, nil
+
+	case "custom_map":
+		if len(args) != 3 {
+			return nil, errors.New("Wrong number of arguments to custom_map function")
+		}
+
+		points, err := ToXyPoints(args[0])
+		if err != nil {
+			return nil, err
+		}
+
+		deflt, err := ToFloat32(args[1])
+		if err != nil {
+			return nil, err
+		}
+
+		itr, err := db.QueryItr(args[2].([]interface{}))
+		if err != nil {
+			return nil, err
+		}
+
+		scoremap := make(map[float32]float32)
+		for _, pt := range points {
+			scoremap[pt.X] = pt.Y
+		}
+		return &CustomMapDocItr{
+			points: scoremap,
+			deflt: deflt,
+			docItr: itr,
 		}, nil
 
 	case "custom_linear":
