@@ -1,12 +1,11 @@
 package scoredb
 
-import (
-)
+import ()
 
 // Remaps a value according to a user-specified mapping of values to scores
 type CustomMapDocItr struct {
 	points map[float32]float32
-	deflt float32
+	deflt  float32
 	docItr DocItr
 }
 

@@ -8,12 +8,12 @@ func TestCustomMapDocItr(t *testing.T) {
 	inside := NewMemoryScoreDocItr([]float32{-1, 0, 2, 8, 5, 9, 12})
 	outside := CustomMapDocItr{
 		docItr: inside,
-		deflt: 0.0,
-		points: map[float32]float32 { // kind of a zig-zag function...
+		deflt:  0.0,
+		points: map[float32]float32{ // kind of a zig-zag function...
 			-2: -2,
-			2: 2,
-			5: 3,
-			6: 1,
+			2:  2,
+			5:  3,
+			6:  1,
 		},
 	}
 

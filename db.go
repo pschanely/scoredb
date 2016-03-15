@@ -8,8 +8,8 @@ import (
 )
 
 type Query struct {
-	Offset int
-	Limit  int
+	Offset   int
+	Limit    int
 	MinScore float32
 
 	// mixed, nested arrays of strings and numbers describing a function; for example: ["sum", ["field", "age"], ["field", "height"]]
@@ -27,7 +27,7 @@ type Record struct {
 }
 
 type QueryResult struct {
-	Ids []string
+	Ids    []string
 	Scores []float32
 }
 
@@ -127,7 +127,7 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 		if score < minScore {
 			continue
 		}
-		candidate := DocScore{DocId:docId, Score: score}
+		candidate := DocScore{DocId: docId, Score: score}
 		if CandidateIsLess(minCandidate, candidate) {
 			heap.Push(results, candidate)
 			if results.Len() > numResults {
@@ -149,7 +149,7 @@ func (db BaseDb) Query(query Query) (QueryResult, error) {
 	var resultScores = make([]float32, numResults)
 	for idx, _ := range resultIds {
 		rec := heap.Pop(results).(DocScore)
-		i := numResults-(idx+1)
+		i := numResults - (idx + 1)
 		resultIds[i] = rec.DocId
 		resultScores[i] = rec.Score
 	}
@@ -193,7 +193,7 @@ func ToXyPoints(input interface{}) ([]CustomPoint, error) {
 			}
 			points[idx] = CustomPoint{xPoint, yPoint}
 		}
-		return points, nil;
+		return points, nil
 	default:
 		return nil, fmt.Errorf("Expected array of (x,y) points; found: '%v' instead", input)
 	}
@@ -318,7 +318,7 @@ func (db BaseStreamingDb) QueryItr(scorer []interface{}) (DocItr, error) {
 		}
 		return &CustomMapDocItr{
 			points: scoremap,
-			deflt: deflt,
+			deflt:  deflt,
 			docItr: itr,
 		}, nil
 

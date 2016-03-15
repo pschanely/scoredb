@@ -88,7 +88,7 @@ Some guidance on scoring:
 # Limitations
 
 Scoredb is minimalistic and highly specialized; it is intended to just act as one piece of a larger system:
-* Scoredb **has no delete or update operation**.  To remove or change an object, you must build a new index.
+* Scoredb **has no delete or update operation**.  To remove or change an object, you must build a new index.  See below for how to swap a new index in under a running instance without downtime.
 * It stores objects as a flat set of key-value pairs with string keys and numeric values only. (internally, all values are 32 bit floating point values)
 * Scoredb can only respond to queries with lists of identifiers; scoredb's indexes do not provide efficient access to the original field data.
 * Scoredb has no built-in clustering, redundancy, or backup functions.
@@ -97,6 +97,35 @@ Scoredb is minimalistic and highly specialized; it is intended to just act as on
 * Scoredb expects you to provide every field for every object; objects that are missing a field cannot be returned from queries that use the missing fields.
 * Scoredb data files are endian specific; most modern CPUs are little endian, so you won't normally have to worry about this.
 
+# Index Bulk Load
+
+You can create a database without running a server using the `scoredb load` command, which expects newline separated json records on stdin.
+So, for instance:
+```
+printf '{"id":"person_1", "values":{"age":10, "height":53}}\n' > data.jsonl
+printf '{"id":"person_2", "values":{"age":32, "height":68}}\n' >> data.jsonl
+cat data.jsonl | scoredb load
+```
+
+# Index Swapping
+
+If you need deletes or updates, you'll have to perodically rebuild your database and swap in updated versions.
+If you specify the -automigrate option to the server, it will look for new database directories that begin with the given data directory
+and keep the (lexigraphically largest) one live.  Use an atomic mv command to put it in place like so:
+
+```
+$ cat new_data.jsonlines | scoredb load -datadir ./live_db_v00001  # Load initial data
+$ scoredb serve -readonly -automigrate -datadir ./live_db_v        # Start server
+
+# when ready for a new version of the database,
+
+$ cat new_data.jsonlines | scoredb load -datadir ./tmp_db          # Create the database
+$ mv ./tmp_db ./live_db_v00002                                     # Rename to match the watched prefix
+
+# The server should detect and load the new database here.
+
+$ rm -rf ./live_db_v00001                                          # Now, remove the old database
+```
 
 # Supported Query Functions
 

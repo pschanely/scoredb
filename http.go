@@ -11,7 +11,8 @@ import (
 )
 
 type ScoreDbServer struct {
-	db Db
+	Db                    Db
+	ReadOnly, AutoMigrate bool
 }
 
 func serializeIds(ids []int64) (string, error) {
@@ -50,7 +51,7 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		p = p[1:]
 	}
 
-	if req.Method == "PUT" {
+	if req.Method == "PUT" && !sds.ReadOnly {
 
 		b, err := ioutil.ReadAll(req.Body)
 		if err != nil {
@@ -71,7 +72,7 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, fmt.Sprintf("Could not parse json: %v", err), 400)
 			return
 		}
-		err = sds.db.BulkIndex(records)
+		err = sds.Db.BulkIndex(records)
 		if err != nil {
 			http.Error(w, "Could not index data", 500)
 			return
@@ -107,18 +108,18 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		scorer := new([]interface{})
 		err = json.Unmarshal([]byte(scorerStrings[0]), scorer)
 		if err != nil {
-			http.Error(w, "Score parameter is not valid JSON", 400)
+			http.Error(w, "Score parameter is not a valid JSON array", 400)
 			return
 		}
 
 		query := Query{
-			Offset: offset,
-			Limit:  limit,
+			Offset:   offset,
+			Limit:    limit,
 			MinScore: minScore,
-			Scorer: *scorer,
+			Scorer:   *scorer,
 		}
 
-		results, err := sds.db.Query(query)
+		results, err := sds.Db.Query(query)
 		if err != nil {
 			fmt.Printf("Internal error. %+v:  %v\n", query, err)
 			http.Error(w, "Internal Error in ScoreDB; please report", 500)
@@ -140,7 +141,7 @@ func (sds *ScoreDbServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func ServeHttp(addr string, db Db) error {
-	scoreDbServer := ScoreDbServer{db}
+func ServeHttp(addr string, db Db, readOnly bool) error {
+	scoreDbServer := ScoreDbServer{Db: db, ReadOnly: readOnly}
 	return http.ListenAndServe(addr, &scoreDbServer)
 }

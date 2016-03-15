@@ -12,7 +12,7 @@ type PowDocItr struct {
 }
 
 func NewPowDocItr(itr DocItr, exp float32) *PowDocItr {
-	return &PowDocItr{exp: exp, oneOverExp: 1.0 / exp, itr: itr};
+	return &PowDocItr{exp: exp, oneOverExp: 1.0 / exp, itr: itr}
 }
 
 func Pow(val, exp float32) float32 {
