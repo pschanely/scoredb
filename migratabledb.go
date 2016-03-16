@@ -13,7 +13,6 @@ func (db *MigratableDb) CheckCurrent() {
 	select {
 	case newDb, ok := <-db.NextDbs:
 		if ok {
-			fmt.Printf(" CC %v %v\n", newDb, ok)
 			db.Current = newDb
 		}
 	default:
@@ -32,6 +31,5 @@ func (db *MigratableDb) Index(id string, values map[string]float32) error {
 
 func (db *MigratableDb) Query(query Query) (QueryResult, error) {
 	db.CheckCurrent()
-	fmt.Printf("QQ %v\n", db.Current)
 	return db.Current.Query(query)
 }

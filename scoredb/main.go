@@ -15,10 +15,26 @@ import (
 )
 
 func MakeStandardDb(dataDir string, numShards int) (*scoredb.BaseDb, error) {
-	shards := make([]scoredb.StreamingDb, numShards)
-	for i := range shards {
-		shardDir := path.Join(dataDir, fmt.Sprintf("shard.%d", i))
-		shards[i] = scoredb.BaseStreamingDb{scoredb.NewFsScoreDb(shardDir)}
+	var shards []scoredb.StreamingDb
+
+	if scoredb.Exists(dataDir) && scoredb.Exists(path.Join(dataDir, "shard.0")) {
+		i := 0
+		shards = make([]scoredb.StreamingDb, 0, numShards)
+		for {
+			shardDir := path.Join(dataDir, fmt.Sprintf("shard.%d", i))
+			if scoredb.Exists(shardDir) {
+				shards = append(shards, scoredb.BaseStreamingDb{scoredb.NewFsScoreDb(shardDir)})
+			} else {
+				break
+			}
+			i += 1
+		}
+	} else {
+		shards = make([]scoredb.StreamingDb, numShards)
+		for i := range shards {
+			shardDir := path.Join(dataDir, fmt.Sprintf("shard.%d", i))
+			shards[i] = scoredb.BaseStreamingDb{scoredb.NewFsScoreDb(shardDir)}
+		}
 	}
 	idDb, err := scoredb.NewBoltIdDb(path.Join(dataDir, "iddb"))
 	if err != nil {
@@ -56,11 +72,12 @@ func watchDir(dbChannel chan scoredb.Db, baseDir string, namePrefix string) {
 			}
 			if newDbName > lastName {
 				fmt.Printf("Detected database at %s%s\n", baseDir, newDbName)
-				newDb, err := MakeStandardDb(newDbName, 1)
+				fullDbName := path.Join(baseDir, newDbName)
+				newDb, err := MakeStandardDb(fullDbName, 1)
 				if err != nil {
-					log.Printf("Unable to load database at %s%s (%v); ignoring\n", dir, newDbName, err)
+					log.Printf("Unable to load database at %s%s (%v); ignoring\n", dir, fullDbName, err)
 				} else {
-					fmt.Printf("The database at %s%s is live\n", baseDir, newDbName)
+					fmt.Printf("The database at %s%s is live\n", baseDir, fullDbName)
 					dbChannel <- newDb
 					lastName = newDbName
 				}
@@ -155,7 +172,7 @@ func main() {
 			}
 		}
 		if batchIndex > 0 {
-			db.BulkIndex(batch)
+			db.BulkIndex(batch[:batchIndex])
 		}
 	case "benchmark":
 		outputFd, err := os.Create(*benchCsvOutput)
