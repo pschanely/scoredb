@@ -1,8 +1,6 @@
 package scoredb
 
-import (
-	"fmt"
-)
+import ()
 
 type MigratableDb struct {
 	Current Db
