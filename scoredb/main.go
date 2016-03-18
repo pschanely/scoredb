@@ -48,7 +48,7 @@ func MakeStandardDb(dataDir string, numShards int) (*scoredb.BaseDb, error) {
 	}, nil
 }
 
-func watchDir(dbChannel chan scoredb.Db, baseDir string, namePrefix string) {
+func watchDir(db *scoredb.MigratableDb, baseDir string, namePrefix string) {
 	log.Printf("Watching for databases at %s%s*\n", baseDir, namePrefix)
 	var lastName = ""
 	for {
@@ -78,7 +78,7 @@ func watchDir(dbChannel chan scoredb.Db, baseDir string, namePrefix string) {
 					log.Printf("Unable to load database at %s%s (%v); ignoring\n", dir, fullDbName, err)
 				} else {
 					fmt.Printf("The database at %s%s is live\n", baseDir, fullDbName)
-					dbChannel <- newDb
+					db.Current = newDb
 					lastName = newDbName
 				}
 			}
@@ -88,11 +88,10 @@ func watchDir(dbChannel chan scoredb.Db, baseDir string, namePrefix string) {
 }
 
 func SetupDirLoading(databaseDir string) *scoredb.MigratableDb {
-	dbChannel := make(chan scoredb.Db)
-	migratable := scoredb.MigratableDb{Current: nil, NextDbs: dbChannel}
+	migratable := scoredb.MigratableDb{Current: nil}
 	baseDir, namePrefix := path.Split(databaseDir)
 	fmt.Printf("Watching for new databases named %s* in %s\n", namePrefix, baseDir)
-	go watchDir(dbChannel, baseDir, namePrefix)
+	go watchDir(&migratable, baseDir, namePrefix)
 	return &migratable
 }
 
