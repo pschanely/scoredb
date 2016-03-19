@@ -56,6 +56,7 @@ func watchDir(db *scoredb.MigratableDb, baseDir string, namePrefix string) {
 		var fileInfos []os.FileInfo
 		if err == nil {
 			fileInfos, err = dir.Readdir(0)
+			dir.Close()
 		}
 		if err != nil {
 			log.Printf("Unable to read %v: %v\n", dir, err)
@@ -83,7 +84,7 @@ func watchDir(db *scoredb.MigratableDb, baseDir string, namePrefix string) {
 				}
 			}
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }
 
