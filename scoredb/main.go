@@ -78,7 +78,7 @@ func watchDir(db *scoredb.MigratableDb, baseDir string, namePrefix string) {
 				if err != nil {
 					log.Printf("Unable to load database at %s%s (%v); ignoring\n", dir, fullDbName, err)
 				} else {
-					fmt.Printf("The database at %s%s is live\n", baseDir, fullDbName)
+					fmt.Printf("The database at %s%s is live at %v\n", baseDir, fullDbName, time.Now().Unix())
 					db.Current = newDb
 					lastName = newDbName
 				}

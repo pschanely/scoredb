@@ -1,6 +1,9 @@
 package scoredb
 
-import ()
+import (
+	"fmt"
+	"time"
+)
 
 type MigratableDb struct {
 	Current Db
@@ -15,5 +18,6 @@ func (db *MigratableDb) Index(id string, values map[string]float32) error {
 }
 
 func (db *MigratableDb) Query(query Query) (QueryResult, error) {
+	fmt.Printf("Query versus %v at %v", db.Current, time.Now().Unix())
 	return db.Current.Query(query)
 }
