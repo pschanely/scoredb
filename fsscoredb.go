@@ -48,6 +48,7 @@ func NewFsScoreDb(dataDir string) *FsScoreDb {
 			if err != nil {
 				panic(err)
 			}
+			fd.Close()
 			if header.LastDocId > highestId {
 				highestId = header.LastDocId
 			}
